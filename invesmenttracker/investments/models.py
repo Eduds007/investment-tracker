@@ -79,3 +79,17 @@ class MetaPortfolio(models.Model):
         return f"{self.tipo}: {self.meta}%"
 
 
+class Dividendo(models.Model):
+    data = models.DateField("Data", help_text="Data do dividendo recebido")
+    ativo = models.CharField("Ativo", max_length=100, help_text="Ex: BBAS3, BOVA11, ITUB4")
+    valor = models.DecimalField("Valor (R$)", max_digits=12, decimal_places=2, help_text="Valor do dividendo")
+    tipo = models.CharField("Tipo", max_length=50, help_text="Ex: Dividendo, JCP, Aluguel", blank=True, null=True)
+    
+    class Meta:
+        verbose_name = "Dividendo"
+        verbose_name_plural = "Dividendos"
+        ordering = ['-data']
+    
+    def __str__(self):
+        return f"{self.data.strftime('%d/%m/%Y')} - {self.ativo}: R$ {self.valor}"
+

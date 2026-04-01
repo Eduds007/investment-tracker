@@ -7,6 +7,7 @@ router = routers.DefaultRouter()
 router.register(r'aportes', views.AporteViewSet, basename='aporte')
 router.register(r'indices', views.IndiceViewSet, basename='indice')
 router.register(r'posicoes', views.PosicaoViewSet, basename='posicao')
+router.register(r'dividendos', views.DividendoViewSet, basename='dividendo')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),

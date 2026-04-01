@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Aporte, Indice, Posicao
+from .models import Aporte, Indice, Posicao, Dividendo
 
 class AporteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -16,4 +16,8 @@ class PosicaoSerializer(serializers.ModelSerializer):
         model = Posicao
         fields = ['id', 'data', 'classe_ativo', 'ativo', 'valor']
 
+class DividendoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Dividendo
+        fields = ['id', 'data', 'ativo', 'valor', 'tipo']
 

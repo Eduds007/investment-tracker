@@ -1,6 +1,6 @@
 from rest_framework import viewsets
-from .models import Aporte, Indice, Posicao
-from .serializers import AporteSerializer, IndiceSerializer, PosicaoSerializer
+from .models import Aporte, Indice, Posicao, Dividendo
+from .serializers import AporteSerializer, IndiceSerializer, PosicaoSerializer, DividendoSerializer
 from rest_framework.response import Response
 
 class AporteViewSet(viewsets.ModelViewSet):
@@ -24,3 +24,9 @@ class PosicaoViewSet(viewsets.ModelViewSet):
     ordering_fields = ['data', 'classe_ativo', 'ativo']
     ordering = ['-data', 'classe_ativo', 'ativo']
 
+class DividendoViewSet(viewsets.ModelViewSet):
+    queryset = Dividendo.objects.all()
+    serializer_class = DividendoSerializer
+    filterset_fields = ['ativo', 'data']
+    ordering_fields = ['data', 'ativo']
+    ordering = ['-data']
