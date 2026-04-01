@@ -4,8 +4,9 @@ from rest_framework import routers
 from investments import views
 
 router = routers.DefaultRouter()
-router.register(r'investments', views.InvestmentViewSet)
-router.register(r'wallet', views.WalletViewSet, basename='wallet')
+router.register(r'aportes', views.AporteViewSet, basename='aporte')
+router.register(r'indices', views.IndiceViewSet, basename='indice')
+router.register(r'posicoes', views.PosicaoViewSet, basename='posicao')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),

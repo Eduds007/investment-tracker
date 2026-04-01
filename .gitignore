@@ -1,45 +1,46 @@
-# ---- BACKEND (Django) ----
-# Python
-*.pyc
-*.pyo
+# -----------------------------
+# Python / Django
+# -----------------------------
 __pycache__/
-*.swp
-*.swo
+*.py[cod]
+*.pyo
 
-# Virtual environment
+# Virtual environments
+.venv/
 venv/
 env/
 
-# Django
+# Django local data
 *.sqlite3
 db.sqlite3
-/media/
-*.log
+media/
+staticfiles/
 
-# Configurações locais
+# Environment/local settings
 .env
-.settings/
+.env.*
 
-# Migrations (opcional, se quiser versioná-las, remova)
-**/migrations/*.py
-!**/migrations/__init__.py
+# Python tooling/cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-# ---- FRONTEND (Vite) ----
-# Node.js
+# -----------------------------
+# Node / Vite
+# -----------------------------
 node_modules/
 dist/
 .vite/
-.vitepress/cache/
 
-# Logs
+# Package manager logs
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-pnpm-lock.yaml
-package-lock.json
 
-# Editor & Sistema
+# -----------------------------
+# Editor / OS
+# -----------------------------
 .DS_Store
 Thumbs.db
 .idea/

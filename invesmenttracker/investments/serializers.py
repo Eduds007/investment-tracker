@@ -1,17 +1,19 @@
 from rest_framework import serializers
-from .models import Investment
+from .models import Aporte, Indice, Posicao
 
-class InvestmentSerializer(serializers.ModelSerializer):
+class AporteSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Investment
-        fields = '__all__'
+        model = Aporte
+        fields = ['id', 'data', 'tipo', 'valor', 'lugar', 'descricao']
 
-class WalletSerializer(serializers.Serializer):
-    name = serializers.CharField()
-    total_quantity = serializers.DecimalField(max_digits=12, decimal_places=2)
-    average_price = serializers.DecimalField(max_digits=12, decimal_places=2)
-    broker = serializers.CharField()
-    category = serializers.CharField()
-    latest_value = serializers.DecimalField(max_digits=12, decimal_places=2)
-    latest_value_date = serializers.DateField()
-    percentage_gain = serializers.DecimalField(max_digits=12, decimal_places=2)
+class IndiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Indice
+        fields = ['id', 'data', 'nome', 'valor']
+
+class PosicaoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Posicao
+        fields = ['id', 'data', 'classe_ativo', 'ativo', 'valor']
+
+

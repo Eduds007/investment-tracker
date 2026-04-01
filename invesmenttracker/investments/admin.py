@@ -1,35 +1,84 @@
 from django.contrib import admin
-from .models import Investment, Category, BasePortfolio, ValueUpdate, Asset
+from django import forms
+from .models import Aporte, Indice, Posicao, MetaPortfolio
 
-@admin.register(Asset)
-class AssetAdmin(admin.ModelAdmin):
-    list_display = ('ticker', 'name')
-    search_fields = ('ticker', 'name')
 
-@admin.register(Investment)
-class InvestmentAdmin(admin.ModelAdmin):
-    list_display = ('asset', 'operation', 'amount', 'price', 'date', 'broker')
-    list_filter = ('operation',)
+class AporteForm(forms.ModelForm):
+    descricao = forms.CharField(
+        widget=forms.TextInput(attrs={
+            'size': 15,
+            'style': 'width: 150px; height: 25px; font-size: 12px;',
+            'placeholder': ''
+        }),
+        required=False,
+        help_text=''
+    )
     
-    # Para manter a categoria visível (opcional)
-    def category(self, obj):
-        return obj.asset.category
-    category.short_description = "Categoria"
+    class Meta:
+        model = Aporte
+        fields = ['data', 'tipo', 'valor', 'lugar', 'descricao']
 
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name',)
-    search_fields = ('name',)
 
-@admin.register(BasePortfolio)
-class BasePortfolioAdmin(admin.ModelAdmin):
-    list_display = ('name', 'percentage')
-    search_fields = ('name__name',)
+@admin.register(Aporte)
+class AporteAdmin(admin.ModelAdmin):
+    form = AporteForm
+    list_display = ('data', 'tipo', 'valor', 'lugar')
+    list_filter = ('tipo', 'lugar', 'data')
+    search_fields = ('lugar', 'descricao')
+    date_hierarchy = 'data'
+    ordering = ('-data',)
+    list_display_links = ('data',)
+    list_editable = ('valor',)
+    
+    fieldsets = (
+        ('Informações do Aporte', {
+            'fields': ('data', 'tipo', 'valor', 'lugar', 'descricao')
+        }),
+    )
 
-@admin.register(ValueUpdate)
-class ValueUpdateAdmin(admin.ModelAdmin):
-    list_display = ('name', 'value', 'date')
-    search_fields = ('name',)
-    list_filter = ('date',)
-    date_hierarchy = 'date' 
+
+@admin.register(Indice)
+class IndiceAdmin(admin.ModelAdmin):
+    list_display = ('data', 'nome', 'valor')
+    list_filter = ('nome', 'data')
+    search_fields = ('nome',)
+    date_hierarchy = 'data'
+    ordering = ('-data', 'nome')
+    list_editable = ('valor',)
+    
+    fieldsets = (
+        ('Informações do Índice', {
+            'fields': ('data', 'nome', 'valor')
+        }),
+    )
+
+
+@admin.register(Posicao)
+class PosicaoAdmin(admin.ModelAdmin):
+    list_display = ('data', 'classe_ativo', 'ativo', 'valor')
+    list_filter = ('classe_ativo', 'data')
+    search_fields = ('ativo', 'classe_ativo')
+    date_hierarchy = 'data'
+    ordering = ('-data', 'classe_ativo', 'ativo')
+    list_editable = ('valor',)
+    
+    fieldsets = (
+        ('Informações da Posição', {
+            'fields': ('data', 'classe_ativo', 'ativo', 'valor')
+        }),
+    )
+
+
+@admin.register(MetaPortfolio)
+class MetaPortfolioAdmin(admin.ModelAdmin):
+    list_display = ('tipo', 'meta')
+    list_editable = ('meta',)
+    search_fields = ('tipo',)
+    
+    fieldsets = (
+        ('Meta de Portfólio', {
+            'fields': ('tipo', 'meta')
+        }),
+    )
+
 

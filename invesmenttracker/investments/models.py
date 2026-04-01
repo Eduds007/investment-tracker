@@ -1,145 +1,81 @@
 from django.db import models
 from decimal import Decimal
-from django.db.models import Max
 
-class Category(models.Model):
-    name = models.CharField(max_length=10, unique=True)  # Ex: 'STOCK', 'FIXED', etc.
-
+class Aporte(models.Model):
+    TIPO_CHOICES = [
+        ('COMPRA', 'Compra'),
+        ('SAQUE', 'Saque'),
+    ]
+    
+    data = models.DateField("Data", help_text="Data da operação")
+    tipo = models.CharField("Tipo", max_length=10, choices=TIPO_CHOICES, help_text="Compra ou Saque")
+    valor = models.DecimalField("Valor (R$)", max_digits=12, decimal_places=2, help_text="Valor em reais")
+    lugar = models.CharField("Local", max_length=50, help_text="Ex: CLEAR, INTER")
+    descricao = models.TextField("Descrição", blank=True, null=True, help_text="Descrição ou observações sobre o aporte")
+    
+    class Meta:
+        verbose_name = "Aporte"
+        verbose_name_plural = "Aportes"
+        ordering = ['-data']
+    
     def __str__(self):
-        return self.name
+        return f"{self.data.strftime('%d/%m/%Y')} - {self.get_tipo_display()} - R$ {self.valor} ({self.lugar})"
+    
+    def total_value(self):
+        return f"R$ {self.valor:,.2f}".replace(',', '.')
 
-class Asset(models.Model):
-    name = models.CharField("Nome do Ativo", max_length=100)
-    ticker = models.CharField("Código (Ticker)", max_length=10, unique=True)  # Novo campo
-    category = models.ForeignKey(
-        Category,
-        on_delete=models.CASCADE,
-        verbose_name="Categoria"
-    )
 
+
+class Indice(models.Model):
+    data = models.DateField("Data", help_text="Data do índice")
+    nome = models.CharField("Nome do Índice", max_length=100, help_text="Ex: BTC, IFIX, S&P500, Bovespa, Inflação")
+    valor = models.DecimalField("Valor", max_digits=15, decimal_places=4, help_text="Valor do índice")
+    
+    class Meta:
+        verbose_name = "Índice"
+        verbose_name_plural = "Índices"
+        ordering = ['-data', 'nome']
+        unique_together = ('data', 'nome')  # Garante que não há duplicatas para a mesma data e nome
+    
     def __str__(self):
-        return f"{self.ticker} - {self.name}"
+        return f"{self.data.strftime('%d/%m/%Y')} - {self.nome}: {self.valor}"
 
-class Investment(models.Model):
-    asset = models.ForeignKey(  # Substitui 'name' e 'category'
-        Asset,
-        on_delete=models.CASCADE,
-        verbose_name="Ativo"
-    )
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    price = models.DecimalField(max_digits=12, decimal_places=2)
-    date = models.DateField()
-    broker = models.CharField(max_length=100)
-    operation = models.CharField(max_length=50, choices=[
-        ('BUY', 'Compra'),
-        ('SELL', 'Venda')
-    ])
 
+class Posicao(models.Model):
+    CLASSE_CHOICES = [
+        ('SALDO', 'Saldo'),
+        ('RESERVA', 'Reserva de Emergência'),
+        ('ETF', 'ETF\'s'),
+        ('FII', 'FII'),
+        ('CRIPTO', 'Criptos'),
+        ('ACAO', 'Ações'),
+    ]
+    
+    data = models.DateField("Data", help_text="Data da posição")
+    classe_ativo = models.CharField("Classe de Ativo", max_length=20, choices=CLASSE_CHOICES, help_text="Categoria do ativo")
+    ativo = models.CharField("Ativo", max_length=100, help_text="Ex: TESOURO, CDB, LCA, BOVA11, BTC, ETH, BBAS3")
+    valor = models.DecimalField("Valor (R$)", max_digits=15, decimal_places=2, help_text="Quanto você tem em reais neste ativo")
+    
+    class Meta:
+        verbose_name = "Posição"
+        verbose_name_plural = "Posições"
+        ordering = ['-data', 'classe_ativo', 'ativo']
+        unique_together = ('data', 'classe_ativo', 'ativo')  # Garante que não há duplicatas
+    
     def __str__(self):
-        return self.name
-    
-class ValueUpdate(models.Model):
-    name = models.CharField(max_length=100)
-    value = models.DecimalField(max_digits=12, decimal_places=2)
-    date = models.DateField()
+        return f"{self.data.strftime('%d/%m/%Y')} - {self.ativo} ({self.get_classe_ativo_display()}): R$ {self.valor}"
 
+
+class MetaPortfolio(models.Model):
+    tipo = models.CharField("Tipo de Ativo", max_length=100, unique=True, help_text="Ex: Reserva, Cripto, S&P500, Ações, FII")
+    meta = models.DecimalField("Meta (%)", max_digits=5, decimal_places=2, help_text="Percentual meta para este tipo de ativo")
+    
+    class Meta:
+        verbose_name = "Meta de Portfólio"
+        verbose_name_plural = "Metas de Portfólio"
+        ordering = ['tipo']
+    
     def __str__(self):
-        return self.name
-
-class Wallet:
-    def __init__(self):
-        self.assets = {}
-        investments = Investment.objects.all().order_by('date')
-        value_updates = self._get_latest_value_updates()  # Últimos valores
-        
-        for investment in investments:
-            self.process_investment(investment)
-        
-        # Adiciona os últimos valores aos ativos
-        self._update_latest_values(value_updates)
-        self._calculate_percentage_gain()
-    
-    def process_investment(self, investment):
-        name = investment.name
-        if name not in self.assets:
-            self.assets[name] = {
-                'total_quantity': Decimal('0'),
-                'total_cost': Decimal('0'),
-                'average_price': Decimal('0'),
-                'broker': investment.broker,
-                'category': investment.category,
-                'latest_value': Decimal('0'),
-                'latest_value_date': None,
-                'percentage_gain': Decimal('0'),
-            }
-        
-        asset = self.assets[name]
-        operation = investment.operation
-        amount = investment.amount
-        price = investment.price
-        
-        if operation == 'BUY':
-            asset['total_quantity'] += amount
-            asset['total_cost'] += amount * price
-            if asset['total_quantity'] != 0:
-                asset['average_price'] = asset['total_cost'] / asset['total_quantity']
-            else:
-                asset['average_price'] = Decimal('0')
-        elif operation == 'SELL':
-            if asset['total_quantity'] == 0:
-                return  # Ignora venda sem estoque
-            sell_amount = min(amount, asset['total_quantity'])  # Não vende mais do que tem
-            avg_price = asset['average_price']
-            asset['total_cost'] -= avg_price * sell_amount
-            asset['total_quantity'] -= sell_amount
-            if asset['total_quantity'] != 0:
-                asset['average_price'] = asset['total_cost'] / asset['total_quantity']
-            else:
-                asset['average_price'] = Decimal('0')
-    
-    def get_assets(self):
-        return self.assets
-    
-    def _get_latest_value_updates(self):
-        # Obtém a última atualização de valor para cada ativo
-        latest_dates = ValueUpdate.objects.values('name').annotate(latest_date=Max('date'))
-        latest_values = {}
-        for entry in latest_dates:
-            value = ValueUpdate.objects.filter(
-                name=entry['name'],
-                date=entry['latest_date']
-            ).first()
-            if value:
-                latest_values[entry['name']] = {
-                    'current_value': value.value,
-                    'date': value.date
-                }
-        return latest_values
-    
-    def _update_latest_values(self, value_updates):
-        # Atualiza os ativos com os últimos valores
-        for name, data in self.assets.items():
-            if name in value_updates:
-                data['latest_value'] = value_updates[name]['current_value']
-                data['latest_value_date'] = value_updates[name]['date']
-            else:
-                data['latest_value'] = Decimal('0')
-                data['latest_value_date'] = None
-
-    def _calculate_percentage_gain(self):
-        for name, data in self.assets.items():
-            avg_price = data['average_price']
-            latest_value = data.get('latest_value', Decimal('0'))
-            
-            # Evita divisão por zero se o preço médio for zero
-            if avg_price == Decimal('0'):
-                data['percentage_gain'] = Decimal('0')
-            else:
-                gain = ((latest_value - avg_price) / avg_price) * 100
-                data['percentage_gain'] = gain.quantize(Decimal('0.01'))  # Formata para 2 casas decimais
+        return f"{self.tipo}: {self.meta}%"
 
 
-    
-class BasePortfolio(models.Model):
-    name = models.ForeignKey(Category, on_delete=models.CASCADE)
-    percentage = models.DecimalField(max_digits=5, decimal_places=2)
