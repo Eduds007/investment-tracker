@@ -163,7 +163,7 @@ export default function DashboardSummary() {
 
   return (
     <div className="mb-8 space-y-4">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4">
         <div className="rounded-lg border border-gray-800 bg-black p-6">
           <div className="mb-4">
             <h3 className="mb-1 text-sm font-semibold text-sky-300">Patrimônio Total</h3>
