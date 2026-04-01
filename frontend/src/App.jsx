@@ -1,6 +1,7 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom'
 import { Chart, registerables } from 'chart.js'
 import DashboardPage from './DashboardPage'
+import AportesPage from './AportesPage'
 import IndicesPage from './IndicesPage'
 import DividendosPage from './DividendosPage'
 
@@ -9,11 +10,13 @@ Chart.register(...registerables)
 export default function App() {
   const location = useLocation()
   const isDashboard = location.pathname === '/'
+  const isAportes = location.pathname === '/aportes'
   const isIndices = location.pathname === '/indices'
   const isDividendos = location.pathname === '/dividendos'
 
   const getTitle = () => {
     if (isDashboard) return 'Dashboard'
+    if (isAportes) return 'Aportes'
     if (isIndices) return 'Evolução de Índices'
     if (isDividendos) return 'Dividendos'
     return 'Investimentos'
@@ -30,6 +33,12 @@ export default function App() {
               className={`rounded-lg px-4 py-2 text-sm font-medium ${isDashboard ? 'bg-blue-600 text-white' : 'border border-gray-600 text-gray-300 hover:bg-gray-800'}`}
             >
               Dashboard
+            </Link>
+            <Link
+              to="/aportes"
+              className={`rounded-lg px-4 py-2 text-sm font-medium ${isAportes ? 'bg-blue-600 text-white' : 'border border-gray-600 text-gray-300 hover:bg-gray-800'}`}
+            >
+              Aportes
             </Link>
             <Link
               to="/indices"
@@ -49,6 +58,7 @@ export default function App() {
 
       <Routes>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/aportes" element={<AportesPage />} />
         <Route path="/indices" element={<IndicesPage />} />
         <Route path="/dividendos" element={<DividendosPage />} />
       </Routes>
