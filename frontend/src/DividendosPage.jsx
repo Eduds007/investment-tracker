@@ -47,16 +47,37 @@ export default function DividendosPage() {
           }
         })
 
+        // Média móvel de 12 meses considerando apenas os meses já existentes até cada ponto
+        const movingAverage12m = months.map((_, idx) => {
+          const start = Math.max(0, idx - 11)
+          const window = months.slice(start, idx + 1)
+          const total = window.reduce((sum, m) => sum + m.total, 0)
+          return total / window.length
+        })
+
         setChartData({
           labels: months.map((m) => m.label),
           datasets: [
             {
+              type: 'line',
+              label: 'Média móvel 12m',
+              data: movingAverage12m,
+              borderColor: '#f59e0b',
+              backgroundColor: '#f59e0b',
+              borderWidth: 2,
+              pointRadius: 2,
+              tension: 0.25,
+              yAxisID: 'y',
+            },
+            {
+              type: 'bar',
               label: 'Dividendos (R$)',
               data: months.map((m) => m.total),
               backgroundColor: '#10b981',
               borderColor: '#059669',
               borderWidth: 1,
             },
+            
           ],
         })
       })

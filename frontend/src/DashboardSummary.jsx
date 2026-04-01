@@ -8,7 +8,7 @@ export default function DashboardSummary() {
   const [percentualPatrimonio, setPercentualPatrimonio] = useState(0)
   
   const [mediaDividendos, setMediaDividendos] = useState(0)
-  const [dividendosAnterior30d, setDividendosAnterior30d] = useState(0)
+  const [mediaDividendos12m, setMediaDividendos12m] = useState(0)
   const [metaDividendos, setMetaDividendos] = useState(0)
   const [percentualDividendos, setPercentualDividendos] = useState(0)
   
@@ -69,55 +69,47 @@ export default function DashboardSummary() {
         totalAtivos30d = posicoeComparacao.reduce((sum, pos) => sum + Number(pos.valor), 0)
       }
 
-      // Calcular dividendos do último mês
+      // Calcular dividendos do mês atual
       const dividendos = divRes.data || []
-      const dividendosUltimo30d = dividendos.filter((div) => {
+      const inicioMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
+      const inicioProximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)
+
+      const dividendosMesAtual = dividendos.filter((div) => {
         const divData = new Date(div.data)
-        return divData >= dias30AtrasData && divData <= hoje
+        return divData >= inicioMesAtual && divData < inicioProximoMes
       })
 
-      const totalDividendosUltimo30d = dividendosUltimo30d.reduce(
+      const totalDividendosMesAtual = dividendosMesAtual.reduce(
         (sum, div) => sum + Number(div.valor),
         0
       )
 
-      // Calcular dividendos de 30-60 dias atrás
-      const dias60AtrasData = new Date(hoje.getTime() - 60 * 24 * 60 * 60 * 1000)
-      let dividendosAnterior30dData = dividendos.filter((div) => {
-        const divData = new Date(div.data)
-        return divData >= dias60AtrasData && divData < dias30AtrasData
-      })
+      // Calcular média mensal dos últimos 12 meses (incluindo meses zerados)
+      const inicioJanela12m = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1)
+      const totaisMensais = {}
 
-      // Se não houver dados de 30-60 dias atrás, pegar o registro mais antigo
-      if (dividendosAnterior30dData.length === 0) {
-        dividendosAnterior30dData = dividendos.filter((div) => {
-          const divData = new Date(div.data)
-          return divData < dias30AtrasData
-        })
+      for (let i = 0; i < 12; i += 1) {
+        const d = new Date(inicioJanela12m.getFullYear(), inicioJanela12m.getMonth() + i, 1)
+        const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        totaisMensais[chave] = 0
       }
 
-      const totalDividendosAnterior30d = dividendosAnterior30dData.reduce(
-        (sum, div) => sum + Number(div.valor),
-        0
-      )
-
-      // Calcular média dos últimos 12 meses
-      const dividendosUltimos12Meses = dividendos.filter((div) => {
+      dividendos.forEach((div) => {
         const divData = new Date(div.data)
-        const diffMs = hoje - divData
-        const diffMeses = diffMs / (1000 * 60 * 60 * 24 * 30.44)
-        return diffMeses <= 12
+        if (divData >= inicioJanela12m && divData < inicioProximoMes) {
+          const chave = `${divData.getFullYear()}-${String(divData.getMonth() + 1).padStart(2, '0')}`
+          if (chave in totaisMensais) {
+            totaisMensais[chave] += Number(div.valor)
+          }
+        }
       })
 
-      const mediaDivs =
-        dividendosUltimos12Meses.length > 0
-          ? dividendosUltimos12Meses.reduce((sum, div) => sum + Number(div.valor), 0) / 12
-          : 0
+      const mediaDivs12m = Object.values(totaisMensais).reduce((sum, valor) => sum + valor, 0) / 12
 
       setTotalPatrimonio(totalAtivos)
       setPatrimonioAnterior30d(totalAtivos30d)
-      setMediaDividendos(mediaDivs)
-      setDividendosAnterior30d(totalDividendosAnterior30d)
+      setMediaDividendos(totalDividendosMesAtual)
+      setMediaDividendos12m(mediaDivs12m)
       setLoading(false)
     }).catch(() => {
       setLoading(false)
@@ -160,7 +152,7 @@ export default function DashboardSummary() {
   }
 
   const variacaoPatrimonio = calcularVariacao(totalPatrimonio, patrimonioAnterior30d)
-  const variacaoDividendos = calcularVariacao(mediaDividendos * 30, dividendosAnterior30d)
+  const variacaoDividendos = calcularVariacao(mediaDividendos, mediaDividendos12m)
 
   const getVariacaoColor = (valor) => {
     if (valor >= 0) return 'text-green-400'
