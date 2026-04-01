@@ -55,23 +55,23 @@ export default function AportesSummary({ refreshKey = 0 }) {
 
   return (
     <div className="grid grid-cols-3 gap-4 mb-8">
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-green-700 mb-2">Aportes (Compras)</h3>
-        <p className="text-2xl font-bold text-green-600">
+      <div className="rounded-lg border border-emerald-900 bg-emerald-950 p-4">
+        <h3 className="mb-2 text-sm font-semibold text-emerald-300">Aportes (Compras)</h3>
+        <p className="text-2xl font-bold text-emerald-200">
           {formatarMoeda(summary.compra)}
         </p>
       </div>
       
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-red-700 mb-2">Saques</h3>
-        <p className="text-2xl font-bold text-red-600">
+      <div className="rounded-lg border border-rose-900 bg-rose-950 p-4">
+        <h3 className="mb-2 text-sm font-semibold text-rose-300">Saques</h3>
+        <p className="text-2xl font-bold text-rose-200">
           {formatarMoeda(summary.saque)}
         </p>
       </div>
       
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-blue-700 mb-2">Líquido (Compra - Saque)</h3>
-        <p className={`text-2xl font-bold ${summary.liquido >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+      <div className="rounded-lg border border-sky-900 bg-sky-950 p-4">
+        <h3 className="mb-2 text-sm font-semibold text-sky-300">Líquido (Compra - Saque)</h3>
+        <p className={`text-2xl font-bold ${summary.liquido >= 0 ? 'text-sky-200' : 'text-rose-200'}`}>
           {formatarMoeda(summary.liquido)}
         </p>
       </div>

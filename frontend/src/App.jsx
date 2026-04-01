@@ -15,7 +15,7 @@ export default function App() {
   }
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-8 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <button
@@ -29,9 +29,10 @@ export default function App() {
       
       <AportesSummary refreshKey={refreshAportesKey} />
 
-      <LastMovementsTable refreshKey={refreshAportesKey} />
-      
-      <VariationTable />
+      <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(360px,1fr))]">
+        <LastMovementsTable refreshKey={refreshAportesKey} />
+        <VariationTable />
+      </div>
 
       <AporteModal
         isOpen={isModalOpen}

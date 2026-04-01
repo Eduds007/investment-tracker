@@ -41,7 +41,7 @@ export default function LastMovementsTable({ refreshKey = 0 }) {
   }
 
   return (
-    <div className="mb-8 rounded-lg border border-gray-800 bg-black p-4 text-white">
+    <div className="rounded-lg border border-gray-800 bg-black p-4 text-white">
       <h2 className="mb-4 text-xl font-semibold text-white">Ultimos 5 movimentos</h2>
 
       {loading ? <p className="text-sm text-gray-300">Carregando movimentos...</p> : null}

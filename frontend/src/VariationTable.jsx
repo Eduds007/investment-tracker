@@ -71,7 +71,7 @@ export default function VariationTable() {
   if (error) return <div className="p-4 bg-black text-red-400">{error}</div>
 
   return (
-    <div className="mb-8 bg-black text-white p-4 rounded-lg border border-gray-800">
+    <div className="bg-black text-white p-4 rounded-lg border border-gray-800">
       <h2 className="text-xl font-semibold mb-4 text-white">Variação por índice (1º x último registro)</h2>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse border border-gray-800 text-sm">
