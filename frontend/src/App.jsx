@@ -1,14 +1,17 @@
-import { Routes, Route, Link, useLocation } from 'react-router-dom'
+import { Routes, Route, Link, useLocation, useState } from 'react-router-dom'
 import { Chart, registerables } from 'chart.js'
 import DashboardPage from './DashboardPage'
 import AportesPage from './AportesPage'
 import IndicesPage from './IndicesPage'
 import DividendosPage from './DividendosPage'
+import SettingsModal from './SettingsModal'
 
 Chart.register(...registerables)
 
 export default function App() {
   const location = useLocation()
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+
   const isDashboard = location.pathname === '/'
   const isAportes = location.pathname === '/aportes'
   const isIndices = location.pathname === '/indices'
@@ -24,7 +27,7 @@ export default function App() {
 
   return (
     <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-8 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+      <div className="mb-8 flex flex-col items-center justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <h1 className="text-2xl font-bold">{getTitle()}</h1>
           <div className="flex gap-2 sm:ml-6">
@@ -54,6 +57,15 @@ export default function App() {
             </Link>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={() => setIsSettingsOpen(true)}
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-600 text-xl text-gray-300 hover:bg-gray-800 hover:text-white"
+          title="Configurações"
+        >
+          ⚙️
+        </button>
       </div>
 
       <Routes>
@@ -62,6 +74,11 @@ export default function App() {
         <Route path="/indices" element={<IndicesPage />} />
         <Route path="/dividendos" element={<DividendosPage />} />
       </Routes>
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
     </div>
   )
 }
