@@ -20,9 +20,9 @@ class IndiceViewSet(viewsets.ModelViewSet):
 class PosicaoViewSet(viewsets.ModelViewSet):
     queryset = Posicao.objects.all()
     serializer_class = PosicaoSerializer
-    filterset_fields = ['classe_ativo', 'ativo', 'data']
-    ordering_fields = ['data', 'classe_ativo', 'ativo']
-    ordering = ['-data', 'classe_ativo', 'ativo']
+    filterset_fields = ['ativo__classe_ativo', 'ativo__nome', 'data']
+    ordering_fields = ['data', 'ativo__classe_ativo', 'ativo__nome']
+    ordering = ['-data', 'ativo__classe_ativo', 'ativo__nome']
 
 class DividendoViewSet(viewsets.ModelViewSet):
     queryset = Dividendo.objects.all()

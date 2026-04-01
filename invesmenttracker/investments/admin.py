@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django import forms
-from .models import Aporte, Indice, Posicao, MetaPortfolio
+from .models import Aporte, Ativo, Indice, Posicao, MetaPortfolio, Dividendo
 
 
 class AporteForm(forms.ModelForm):
@@ -53,18 +53,32 @@ class IndiceAdmin(admin.ModelAdmin):
     )
 
 
+@admin.register(Ativo)
+class AtivoAdmin(admin.ModelAdmin):
+    list_display = ('nome', 'classe_ativo')
+    list_filter = ('classe_ativo',)
+    search_fields = ('nome',)
+    ordering = ('classe_ativo', 'nome')
+    
+    fieldsets = (
+        ('Informações do Ativo', {
+            'fields': ('nome', 'classe_ativo')
+        }),
+    )
+
+
 @admin.register(Posicao)
 class PosicaoAdmin(admin.ModelAdmin):
-    list_display = ('data', 'classe_ativo', 'ativo', 'valor')
-    list_filter = ('classe_ativo', 'data')
-    search_fields = ('ativo', 'classe_ativo')
+    list_display = ('data', 'ativo', 'valor')
+    list_filter = ('ativo__classe_ativo', 'data')
+    search_fields = ('ativo__nome',)
     date_hierarchy = 'data'
-    ordering = ('-data', 'classe_ativo', 'ativo')
+    ordering = ('-data', 'ativo')
     list_editable = ('valor',)
     
     fieldsets = (
         ('Informações da Posição', {
-            'fields': ('data', 'classe_ativo', 'ativo', 'valor')
+            'fields': ('data', 'ativo', 'valor')
         }),
     )
 
@@ -78,6 +92,24 @@ class MetaPortfolioAdmin(admin.ModelAdmin):
     fieldsets = (
         ('Meta de Portfólio', {
             'fields': ('tipo', 'meta')
+        }),
+    )
+
+
+
+
+@admin.register(Dividendo)
+class DividendoAdmin(admin.ModelAdmin):
+    list_display = ('data', 'ativo', 'valor', 'tipo')
+    list_filter = ('ativo__classe_ativo', 'data', 'tipo')
+    search_fields = ('ativo__nome',)
+    date_hierarchy = 'data'
+    ordering = ('-data',)
+    list_editable = ('valor',)
+    
+    fieldsets = (
+        ('Informações do Dividendo', {
+            'fields': ('data', 'ativo', 'valor', 'tipo')
         }),
     )
 
