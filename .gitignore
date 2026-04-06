@@ -46,3 +46,9 @@ Thumbs.db
 .idea/
 .vscode/
 *.iml
+
+# Historical CSV data
+historico/
+
+# Local import scripts
+invesmenttracker/load_*.py
