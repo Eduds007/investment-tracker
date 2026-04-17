@@ -5,6 +5,8 @@ import DashboardPage from './DashboardPage'
 import AportesPage from './AportesPage'
 import IndicesPage from './IndicesPage'
 import DividendosPage from './DividendosPage'
+import EvolucaoPatrimonialPage from './EvolucaoPatrimonialPage'
+import RecomendadoresPage from './RecomendadoresPage'
 import SettingsModal from './SettingsModal'
 
 Chart.register(...registerables)
@@ -17,12 +19,16 @@ export default function App() {
   const isAportes = location.pathname === '/aportes'
   const isIndices = location.pathname === '/indices'
   const isDividendos = location.pathname === '/dividendos'
+  const isPatrimonio = location.pathname === '/patrimonio'
+  const isRecomendadores = location.pathname === '/recomendadores'
 
   const getTitle = () => {
     if (isDashboard) return 'Dashboard'
     if (isAportes) return 'Aportes'
     if (isIndices) return 'Evolução de Índices'
     if (isDividendos) return 'Dividendos'
+    if (isPatrimonio) return 'Evolução Patrimonial'
+    if (isRecomendadores) return 'Recomendadores de Ações'
     return 'Investimentos'
   }
 
@@ -56,6 +62,18 @@ export default function App() {
             >
               Dividendos
             </Link>
+            <Link
+              to="/patrimonio"
+              className={`rounded-lg px-4 py-2 text-sm font-medium ${isPatrimonio ? 'bg-blue-600 text-white' : 'border border-gray-600 text-gray-300 hover:bg-gray-800'}`}
+            >
+              Patrimônio
+            </Link>
+            <Link
+              to="/recomendadores"
+              className={`rounded-lg px-4 py-2 text-sm font-medium ${isRecomendadores ? 'bg-blue-600 text-white' : 'border border-gray-600 text-gray-300 hover:bg-gray-800'}`}
+            >
+              Recomendações
+            </Link>
           </div>
         </div>
 
@@ -74,6 +92,8 @@ export default function App() {
         <Route path="/aportes" element={<AportesPage />} />
         <Route path="/indices" element={<IndicesPage />} />
         <Route path="/dividendos" element={<DividendosPage />} />
+        <Route path="/patrimonio" element={<EvolucaoPatrimonialPage />} />
+        <Route path="/recomendadores" element={<RecomendadoresPage />} />
       </Routes>
 
       <SettingsModal

@@ -13,7 +13,16 @@ echo.
 
 REM Verificar Python
 echo [1/5] Verificando Python...
-python --version >nul 2>&1
+set "PYTHON_EXE=%~dp0.venv\Scripts\python.exe"
+if not exist "%PYTHON_EXE%" (
+    color c
+    echo.
+    echo [ERRO] Ambiente virtual .venv nao encontrado!
+    echo.
+    pause
+    exit /b 1
+)
+"%PYTHON_EXE%" --version >nul 2>&1
 if errorlevel 1 (
     color c
     echo.
@@ -28,8 +37,8 @@ echo.
 REM Ir para backend
 echo [2/5] Configurando Backend...
 cd /d "%~dp0invesmenttracker"
-pip install -q django djangorestframework django-cors-headers 2>nul
-python manage.py migrate >nul 2>&1
+"%PYTHON_EXE%" -m pip install -q django djangorestframework django-cors-headers 2>nul
+"%PYTHON_EXE%" manage.py migrate >nul 2>&1
 echo [OK] Backend pronto
 echo.
 
@@ -48,7 +57,7 @@ echo.
 REM Iniciar Django
 echo [5/5] Iniciando servidores...
 echo.
-start "Backend - Django (8000)" cmd /k "cd %~dp0invesmenttracker && python manage.py runserver"
+start "Backend - Django (8000)" cmd /k "cd /d ""%~dp0invesmenttracker"" && ""%PYTHON_EXE%"" manage.py runserver"
 
 REM Esperar Django iniciar
 timeout /t 3 /nobreak >nul

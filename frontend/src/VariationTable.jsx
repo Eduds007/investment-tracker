@@ -20,28 +20,41 @@ export default function VariationTable() {
         })
         const result = []
         byIndice.forEach((list, indice) => {
-          // usa a data para pegar o mais antigo e o mais recente
-          let oldest = null
-          let newest = null
-          list.forEach(item => {
-            const d = new Date(item.data)
-            if (!oldest || d < oldest.date) oldest = { date: d, item }
-            if (!newest || d > newest.date) newest = { date: d, item }
-          })
+          const entries = list
+            .map(item => ({ date: new Date(`${item.data}T00:00:00`), item }))
+            .filter(entry => Number.isFinite(entry.date.getTime()))
+            .sort((a, b) => a.date - b.date)
 
-          if (!oldest || !newest) return
+          if (!entries.length) return
+
+          const newest = entries[entries.length - 1]
+          const targetDate = new Date(newest.date)
+          targetDate.setFullYear(targetDate.getFullYear() - 1)
+
+          // Usa o registro mais próximo em/antes de 12 meses atrás; fallback para o mais antigo.
+          let base = null
+          entries.forEach(entry => {
+            if (entry.date <= targetDate) {
+              base = entry
+            }
+          })
+          if (!base) {
+            base = entries[0]
+          }
+
           const isInflacao = ['inflacao', 'inflação', 'ipca'].includes(indice.toLowerCase())
-          const firstVal = parseFloat(oldest.item.valor)
+          const firstVal = parseFloat(base.item.valor)
           const lastVal = parseFloat(newest.item.valor)
           if (!isInflacao && !firstVal) return
 
           let variation = 0
           if (isInflacao) {
-            // juros compostos mês a mês
-            const sortedAsc = [...list].sort((a, b) => new Date(a.data) - new Date(b.data))
+            // juros compostos mês a mês apenas na janela de 12 meses até o último registro
             let factor = 1
-            sortedAsc.forEach(it => {
-              const rate = parseFloat(it.valor)
+            entries.forEach(entry => {
+              if (entry.date <= base.date || entry.date > newest.date) return
+
+              const rate = parseFloat(entry.item.valor)
               if (Number.isFinite(rate)) {
                 factor *= 1 + rate / 100
               }
@@ -50,7 +63,6 @@ export default function VariationTable() {
           } else {
             variation = ((lastVal - firstVal) / firstVal) * 100
           }
-          console.log(indice)
           result.push({ indice, primeiro: firstVal, ultimo: lastVal, variacao: variation, isInflacao })
         })
         // ordena pelo nome do índice
@@ -72,13 +84,13 @@ export default function VariationTable() {
 
   return (
     <div className="bg-black text-white p-4 rounded-lg border border-gray-800">
-      <h2 className="text-xl font-semibold mb-4 text-white">Variação por índice (1º x último registro)</h2>
+      <h2 className="text-xl font-semibold mb-4 text-white">Variação por índice (12m x último registro)</h2>
       <div className="overflow-x-auto">
         <table className="w-full border-collapse border border-gray-800 text-sm">
           <thead>
             <tr className="bg-gray-900 text-gray-100">
               <th className="border border-gray-800 p-2 text-left">Índice</th>
-              <th className="border border-gray-800 p-2 text-right">Primeiro</th>
+              <th className="border border-gray-800 p-2 text-right">12m atrás</th>
               <th className="border border-gray-800 p-2 text-right">Último</th>
               <th className="border border-gray-800 p-2 text-right">Variação</th>
             </tr>

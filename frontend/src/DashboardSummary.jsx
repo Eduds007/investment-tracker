@@ -69,47 +69,42 @@ export default function DashboardSummary() {
         totalAtivos30d = posicoeComparacao.reduce((sum, pos) => sum + Number(pos.valor), 0)
       }
 
-      // Calcular dividendos do mês atual
+      // Calcular média mensal dos últimos 12 meses e da janela anterior de 12 meses
       const dividendos = divRes.data || []
       const inicioMesAtual = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
       const inicioProximoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1)
+      const inicioJanelaAtual = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1)
+      const inicioJanelaAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 23, 1)
 
-      const dividendosMesAtual = dividendos.filter((div) => {
-        const divData = new Date(div.data)
-        return divData >= inicioMesAtual && divData < inicioProximoMes
-      })
+      const calcularMediaJanela12m = (dataInicio, dataFim) => {
+        const totaisMensais = {}
 
-      const totalDividendosMesAtual = dividendosMesAtual.reduce(
-        (sum, div) => sum + Number(div.valor),
-        0
-      )
+        for (let i = 0; i < 12; i += 1) {
+          const d = new Date(dataInicio.getFullYear(), dataInicio.getMonth() + i, 1)
+          const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+          totaisMensais[chave] = 0
+        }
 
-      // Calcular média mensal dos últimos 12 meses (incluindo meses zerados)
-      const inicioJanela12m = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1)
-      const totaisMensais = {}
+        dividendos.forEach((div) => {
+          const divData = new Date(div.data)
+          if (divData >= dataInicio && divData < dataFim) {
+            const chave = `${divData.getFullYear()}-${String(divData.getMonth() + 1).padStart(2, '0')}`
+            if (chave in totaisMensais) {
+              totaisMensais[chave] += Number(div.valor)
+            }
+          }
+        })
 
-      for (let i = 0; i < 12; i += 1) {
-        const d = new Date(inicioJanela12m.getFullYear(), inicioJanela12m.getMonth() + i, 1)
-        const chave = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-        totaisMensais[chave] = 0
+        return Object.values(totaisMensais).reduce((sum, valor) => sum + valor, 0) / 12
       }
 
-      dividendos.forEach((div) => {
-        const divData = new Date(div.data)
-        if (divData >= inicioJanela12m && divData < inicioProximoMes) {
-          const chave = `${divData.getFullYear()}-${String(divData.getMonth() + 1).padStart(2, '0')}`
-          if (chave in totaisMensais) {
-            totaisMensais[chave] += Number(div.valor)
-          }
-        }
-      })
-
-      const mediaDivs12m = Object.values(totaisMensais).reduce((sum, valor) => sum + valor, 0) / 12
+      const mediaDivs12mAtual = calcularMediaJanela12m(inicioJanelaAtual, inicioProximoMes)
+      const mediaDivs12mAnterior = calcularMediaJanela12m(inicioJanelaAnterior, inicioMesAtual)
 
       setTotalPatrimonio(totalAtivos)
       setPatrimonioAnterior30d(totalAtivos30d)
-      setMediaDividendos(totalDividendosMesAtual)
-      setMediaDividendos12m(mediaDivs12m)
+      setMediaDividendos(mediaDivs12mAtual)
+      setMediaDividendos12m(mediaDivs12mAnterior)
       setLoading(false)
     }).catch(() => {
       setLoading(false)
@@ -190,7 +185,7 @@ export default function DashboardSummary() {
 
         <div className="rounded-lg border border-gray-800 bg-black p-6">
           <div className="mb-4">
-            <h3 className="mb-1 text-sm font-semibold text-emerald-300">Dividendos Mensais</h3>
+            <h3 className="mb-1 text-sm font-semibold text-emerald-300">Dividendos Mensais (Média 12m)</h3>
             <div className="space-y-1">
               <p className="text-3xl font-bold text-white">{formatarMoeda(mediaDividendos)}</p>
               <p className={`text-sm ${getVariacaoColor(variacaoDividendos.absoluta)}`}>
