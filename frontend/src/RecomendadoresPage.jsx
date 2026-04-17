@@ -1,216 +1,156 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import axios from 'axios'
 
 export default function RecomendadoresPage() {
-  const [recomendacoes, setRecomendacoes] = useState([])
-  const [carregando, setCarregando] = useState(true)
+  const [valorAporte, setValorAporte] = useState('100')
+  const [sugestao, setSugestao] = useState(null)
+  const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState(null)
 
-  useEffect(() => {
-    carregarRecomendacoes()
-  }, [])
-
-  const carregarRecomendacoes = async () => {
+  const calcularSugestao = async () => {
+    const valor = parseFloat(valorAporte)
+    if (!valor || valor <= 0) return
     setCarregando(true)
     setErro(null)
+    setSugestao(null)
     try {
-      const response = await axios.get('http://localhost:8000/api/recomendadores/')
+      const response = await axios.get(`http://localhost:8000/api/sugestao-aporte/?valor=${valor}`)
       if (response.data.success) {
-        setRecomendacoes(response.data.data)
+        setSugestao(response.data)
       } else {
-        setErro('Erro ao carregar recomendações')
+        setErro(response.data.error || 'Erro ao calcular sugestão')
       }
     } catch (err) {
       setErro(`Erro ao conectar com o servidor: ${err.message}`)
-      console.error(err)
     } finally {
       setCarregando(false)
     }
   }
 
-  const getSectorColor = (setor) => {
-    const colors = {
-      Energia: 'bg-red-100 text-red-800',
-      Mineração: 'bg-yellow-100 text-yellow-800',
-      Financeiro: 'bg-blue-100 text-blue-800',
-      Tecnologia: 'bg-purple-100 text-purple-800',
-      Varejo: 'bg-green-100 text-green-800',
-      Saúde: 'bg-pink-100 text-pink-800',
-      Utilidades: 'bg-indigo-100 text-indigo-800'
-    }
-    return colors[setor] || 'bg-gray-100 text-gray-800'
-  }
+  return (
+    <div className="rounded-lg border border-gray-700 bg-gray-900 p-6 space-y-5">
+      <h2 className="text-xl font-bold text-white">Sugestão de Aporte</h2>
 
-  const getRiscoLevel = (score) => {
-    if (score >= 8) return 'Baixo'
-    if (score >= 6) return 'Médio'
-    return 'Alto'
-  }
-
-  const getRiscoColor = (risco) => {
-    const colors = {
-      Baixo: 'text-green-500',
-      Médio: 'text-yellow-500',
-      Alto: 'text-red-500'
-    }
-    return colors[risco] || 'text-gray-500'
-  }
-
-  const getRecomendacaoColor = (recomendacao) => {
-    const colors = {
-      COMPRA: 'bg-green-100 border-green-300',
-      ESPERA: 'bg-yellow-100 border-yellow-300',
-      VENDA: 'bg-red-100 border-red-300'
-    }
-    return colors[recomendacao] || 'bg-gray-100 border-gray-300'
-  }
-
-  const getRecomendacaoTextColor = (recomendacao) => {
-    const colors = {
-      COMPRA: 'text-green-700 font-bold',
-      ESPERA: 'text-yellow-700 font-bold',
-      VENDA: 'text-red-700 font-bold'
-    }
-    return colors[recomendacao] || 'text-gray-700'
-  }
-
-  if (carregando) {
-    return (
-      <div className="flex h-96 items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-700 border-t-blue-600 mx-auto"></div>
-          <p className="text-gray-300">Carregando recomendações...</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+        <div className="flex-1">
+          <label className="mb-1 block text-sm font-medium text-gray-400">Valor do Aporte (R$)</label>
+          <input
+            type="number"
+            min="1"
+            value={valorAporte}
+            onChange={e => setValorAporte(e.target.value)}
+            className="w-full rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+            placeholder="Ex: 500"
+          />
         </div>
-      </div>
-    )
-  }
-
-  if (erro) {
-    return (
-      <div className="rounded-lg border border-red-500 bg-red-50 p-4">
-        <p className="text-red-700">{erro}</p>
         <button
-          onClick={carregarRecomendacoes}
-          className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700"
+          onClick={calcularSugestao}
+          disabled={carregando || !valorAporte || parseFloat(valorAporte) <= 0}
+          className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Tentar Novamente
+          {carregando ? 'Calculando...' : 'Calcular'}
         </button>
       </div>
-    )
-  }
 
-  const scoreMedia = recomendacoes.length > 0
-    ? (recomendacoes.reduce((acc, r) => acc + r.score, 0) / recomendacoes.length).toFixed(1)
-    : '0.0'
-
-  const potencialMedia = recomendacoes.length > 0
-    ? (recomendacoes.reduce((acc, r) => acc + r.potencial, 0) / recomendacoes.length).toFixed(1)
-    : '0.0'
-
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
-          <div className="text-sm font-medium text-gray-400">Recomendações Ativas</div>
-          <div className="mt-2 text-3xl font-bold text-white">{recomendacoes.length}</div>
+      {carregando && (
+        <div className="flex items-center gap-3 text-gray-400">
+          <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-600 border-t-blue-500"></div>
+          <span className="text-sm">Analisando ativos via yfinance, aguarde...</span>
         </div>
-        <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
-          <div className="text-sm font-medium text-gray-400">Score Médio</div>
-          <div className="mt-2 text-3xl font-bold text-white">{scoreMedia}</div>
-        </div>
-        <div className="rounded-lg border border-gray-700 bg-gray-900 p-4">
-          <div className="text-sm font-medium text-gray-400">Potencial Médio</div>
-          <div className="mt-2 text-3xl font-bold text-green-500">{potencialMedia}%</div>
-        </div>
-      </div>
+      )}
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-bold text-white">Principais Recomendações</h2>
-        {recomendacoes.length > 0 ? (
-          recomendacoes.map((rec, idx) => (
-            <div
-              key={idx}
-              className={`rounded-lg border-2 p-6 ${getRecomendacaoColor(rec.recomendacao)}`}
-            >
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-xl font-bold text-gray-900">{rec.ticker}</h3>
-                    <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getSectorColor(rec.setor)}`}>
-                      {rec.setor}
-                    </span>
-                    <span className={`inline-block rounded-full px-3 py-1 text-xs font-bold ${getRecomendacaoTextColor(rec.recomendacao)}`}>
-                      {rec.recomendacao}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm text-gray-700 font-medium">{rec.empresa}</p>
-                  <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div>
-                      <p className="text-xs font-medium text-gray-600">Yield Anual</p>
-                      <p className="text-lg font-bold text-gray-900">{rec.yield.toFixed(2)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-600">Yield Mínimo</p>
-                      <p className="text-lg font-bold text-gray-900">{rec.minus_dp.toFixed(2)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-600">Desvio Padrão</p>
-                      <p className="text-lg font-bold text-gray-900">{rec.dp.toFixed(2)}%</p>
-                    </div>
-                    <div>
-                      <p className="text-xs font-medium text-gray-600">Potencial</p>
-                      <p className={`text-lg font-bold ${rec.potencial > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {rec.potencial.toFixed(2)}%
-                      </p>
-                    </div>
-                  </div>
-                </div>
+      {erro && (
+        <p className="rounded-lg border border-red-700 bg-red-900/30 px-4 py-2 text-sm text-red-400">{erro}</p>
+      )}
 
-                <div className="flex flex-col items-end gap-3">
-                  <div className="rounded-lg bg-gray-900 px-4 py-2 text-center">
-                    <div className="text-xs font-medium text-gray-400">Score</div>
-                    <div className="text-2xl font-bold text-white">{rec.score.toFixed(1)}</div>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="text-xs font-medium text-gray-600">Preço Atual</div>
-                    <div className="text-lg font-bold text-gray-900">R$ {rec.preco.toFixed(2)}</div>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="text-xs font-medium text-gray-600">Preço-Alvo</div>
-                    <div className="text-lg font-bold text-blue-600">R$ {rec.preco_alvo.toFixed(2)}</div>
-                  </div>
-
-                  <div className="text-right">
-                    <div className="text-xs font-medium text-gray-600">Risco</div>
-                    <div className={`text-lg font-bold ${getRiscoColor(getRiscoLevel(rec.score))}`}>
-                      {getRiscoLevel(rec.score)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                className="mt-4 w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                Adicionar ao Portfólio
-              </button>
+      {sugestao && (
+        <div className="space-y-5">
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="font-semibold text-green-400">
+                Comprar — {sugestao.total_compras} ativo{sugestao.total_compras !== 1 ? 's' : ''}
+              </h3>
+              <span className="text-sm text-gray-400">
+                Total: {sugestao.valor_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+              </span>
             </div>
-          ))
-        ) : (
-          <div className="rounded-lg border border-dashed border-gray-600 bg-gray-900 p-6 text-center">
-            <p className="text-gray-400">Nenhuma recomendação disponível</p>
+            {sugestao.comprar.length > 0 ? (
+              <div className="overflow-x-auto rounded-lg border border-gray-700">
+                <table className="min-w-full divide-y divide-gray-700 text-sm">
+                  <thead className="bg-gray-800 text-gray-400">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Ativo</th>
+                      <th className="px-4 py-2 text-right">-1dp</th>
+                      <th className="px-4 py-2 text-right">Yield</th>
+                      <th className="px-4 py-2 text-right">Potencial</th>
+                      <th className="px-4 py-2 text-right">Valor</th>
+                      <th className="px-4 py-2 text-right">%</th>
+                      <th className="px-4 py-2 text-center">Carteira</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800 bg-gray-900">
+                    {sugestao.comprar.map((item, i) => (
+                      <tr key={i} className="hover:bg-gray-800/50">
+                        <td className="px-4 py-2 font-bold text-white">{item.ticker}</td>
+                        <td className="px-4 py-2 text-right text-yellow-400">{item.minus_dp.toFixed(2)}%</td>
+                        <td className="px-4 py-2 text-right text-gray-300">{item.yield.toFixed(2)}%</td>
+                        <td className={`px-4 py-2 text-right font-medium ${item.potencial >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {item.potencial.toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-2 text-right font-bold text-white">
+                          {item.valor_sugerido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </td>
+                        <td className="px-4 py-2 text-right text-gray-400">{item.percentual.toFixed(1)}%</td>
+                        <td className="px-4 py-2 text-center text-lg">
+                          {item.na_carteira ? '★' : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">Nenhum ativo recomendado para compra no momento.</p>
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="rounded-lg border border-dashed border-gray-600 bg-gray-900 p-6 text-center">
-        <p className="text-gray-400">
-          💡 As recomendações são baseadas em análise de dividendos históricos e potencial de valorização
-        </p>
-      </div>
+          {sugestao.vender.length > 0 && (
+            <div>
+              <h3 className="mb-3 font-semibold text-red-400">
+                Considere Vender — {sugestao.vender.length} ativo{sugestao.vender.length !== 1 ? 's' : ''} na sua carteira
+              </h3>
+              <div className="overflow-x-auto rounded-lg border border-gray-700">
+                <table className="min-w-full divide-y divide-gray-700 text-sm">
+                  <thead className="bg-gray-800 text-gray-400">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Ativo</th>
+                      <th className="px-4 py-2 text-right">-1dp</th>
+                      <th className="px-4 py-2 text-right">Yield</th>
+                      <th className="px-4 py-2 text-right">Potencial</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800 bg-gray-900">
+                    {sugestao.vender.map((item, i) => (
+                      <tr key={i} className="hover:bg-gray-800/50">
+                        <td className="px-4 py-2 font-bold text-white">{item.ticker}</td>
+                        <td className="px-4 py-2 text-right text-red-400">{item.minus_dp.toFixed(2)}%</td>
+                        <td className="px-4 py-2 text-right text-gray-300">{item.yield.toFixed(2)}%</td>
+                        <td className="px-4 py-2 text-right text-red-400 font-medium">{item.potencial.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {sugestao.vender.length === 0 && (
+            <p className="text-sm text-gray-500">Nenhum ativo da sua carteira com recomendação de venda.</p>
+          )}
+
+          <p className="text-xs text-gray-600">★ = ativo já presente na carteira</p>
+        </div>
+      )}
     </div>
   )
 }

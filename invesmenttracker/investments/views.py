@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Aporte, Indice, Posicao, Dividendo
 from .serializers import AporteSerializer, IndiceSerializer, PosicaoSerializer, DividendoSerializer
-from .recomendador import gerar_json_recomendacoes
+from .recomendador import sugerir_alocacao
 
 class AporteViewSet(viewsets.ModelViewSet):
     queryset = Aporte.objects.all()
@@ -35,19 +35,10 @@ class DividendoViewSet(viewsets.ModelViewSet):
 
 
 @api_view(['GET'])
-def recomendadores(request):
-    """
-    Retorna recomendações de ações baseado no algoritmo de análise de dividendos.
-    """
+def sugestao_aporte(request):
     try:
-        recomendacoes = gerar_json_recomendacoes()
-        return Response({
-            'success': True,
-            'data': recomendacoes,
-            'total': len(recomendacoes)
-        })
+        valor = float(request.query_params.get('valor', 100))
+        resultado = sugerir_alocacao(valor)
+        return Response({'success': True, **resultado})
     except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=500)
+        return Response({'success': False, 'error': str(e)}, status=500)

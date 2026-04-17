@@ -50,9 +50,11 @@ def obter_recomendacoes(stocks_file=None):
             
             if historico.empty:
                 continue
-                
-            # Calcular yield
-            historico['yield'] = historico['Dividends'] / historico['Close']
+
+            preco_atual = historico.iloc[-1]['Close']
+
+            # Calcular yield sempre em cima do preço atual
+            historico['yield'] = historico['Dividends'] / preco_atual
             historico_div = historico[historico['yield'] != 0]
             
             # Dados dos últimos 12 meses
@@ -76,7 +78,7 @@ def obter_recomendacoes(stocks_file=None):
             
             # Dados da ação
             ticker = stock
-            preco = historico.iloc[-1]['Close']
+            preco = preco_atual
             target_price = dividends_doze_meses / 0.06 if dividends_doze_meses > 0 else 0
             dyield = media
             menos_dp = media - desv
@@ -129,6 +131,45 @@ def obter_recomendacoes(stocks_file=None):
     resultado = resultado.sort_values('score', ascending=False)
     
     return resultado
+
+def sugerir_alocacao(valor: float, stocks_file=None) -> dict:
+    from .models import Posicao
+
+    # Get tickers in the latest portfolio snapshot
+    ultima_data = Posicao.objects.order_by('-data').values_list('data', flat=True).first()
+    tickers_carteira = set()
+    if ultima_data:
+        tickers_carteira = set(
+            Posicao.objects.filter(data=ultima_data)
+            .select_related('ativo')
+            .values_list('ativo__nome', flat=True)
+        )
+
+    recomendacoes = gerar_json_recomendacoes(stocks_file)
+
+    compras = [r for r in recomendacoes if r['recomendacao'] == 'COMPRA']
+    if not compras:
+        compras = [r for r in recomendacoes if r['recomendacao'] == 'ESPERA']
+
+    compras.sort(key=lambda r: r['minus_dp'], reverse=True)
+    total_minus_dp = sum(r['minus_dp'] for r in compras) or 1
+    for r in compras:
+        r['valor_sugerido'] = round((r['minus_dp'] / total_minus_dp) * valor, 2)
+        r['percentual'] = round((r['minus_dp'] / total_minus_dp) * 100, 1)
+        r['na_carteira'] = r['ticker'] in tickers_carteira
+
+    vendas = [
+        r for r in recomendacoes
+        if r['recomendacao'] == 'VENDA' and r['ticker'] in tickers_carteira
+    ]
+
+    return {
+        'comprar': compras,
+        'vender': vendas,
+        'valor_total': valor,
+        'total_compras': len(compras),
+    }
+
 
 def gerar_json_recomendacoes(stocks_file=None):
     """

@@ -12,5 +12,5 @@ router.register(r'dividendos', views.DividendoViewSet, basename='dividendo')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
-    path('api/recomendadores/', views.recomendadores, name='recomendadores'),
+    path('api/sugestao-aporte/', views.sugestao_aporte, name='sugestao-aporte'),
 ]
