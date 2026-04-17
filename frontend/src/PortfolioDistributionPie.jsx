@@ -20,7 +20,7 @@ const COLORS = {
   ACAO: '#38bdf8',
 }
 
-export default function PortfolioDistributionPie() {
+export default function PortfolioDistributionPie({ refreshKey = 0 }) {
   const [chartData, setChartData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -82,7 +82,7 @@ export default function PortfolioDistributionPie() {
       .finally(() => {
         setLoading(false)
       })
-  }, [])
+  }, [refreshKey])
 
   const options = {
     responsive: true,

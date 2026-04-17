@@ -1,11 +1,21 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 
-export default function RecomendadoresPage() {
+export default function RecomendadoresPage({ refreshKey = 0 }) {
   const [valorAporte, setValorAporte] = useState('100')
   const [sugestao, setSugestao] = useState(null)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState(null)
+
+  const [rebalanceamento, setRebalanceamento] = useState(null)
+  const [loadingReb, setLoadingReb] = useState(true)
+
+  useEffect(() => {
+    axios.get('http://localhost:8000/api/rebalanceamento/')
+      .then(res => res.data.success && setRebalanceamento(res.data))
+      .catch(() => {})
+      .finally(() => setLoadingReb(false))
+  }, [refreshKey])
 
   const calcularSugestao = async () => {
     const valor = parseFloat(valorAporte)
@@ -151,6 +161,72 @@ export default function RecomendadoresPage() {
           <p className="text-xs text-gray-600">★ = ativo já presente na carteira</p>
         </div>
       )}
+
+      {/* Rebalanceamento por Setor */}
+      <div className="rounded-lg border border-gray-700 bg-gray-900 p-6 space-y-4">
+        <div>
+          <h2 className="text-xl font-bold text-white">Rebalanceamento por Setor</h2>
+          {rebalanceamento && (
+            <p className="text-xs text-gray-500 mt-1">
+              Referência: {new Date(rebalanceamento.data_referencia + 'T00:00:00').toLocaleDateString('pt-BR')}
+              {' · '}Total: {rebalanceamento.total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </p>
+          )}
+        </div>
+
+        {loadingReb && <p className="text-sm text-gray-500">Carregando posições...</p>}
+
+        {!loadingReb && !rebalanceamento && (
+          <p className="text-sm text-gray-500">Sem posições registradas para calcular o rebalanceamento.</p>
+        )}
+
+        {rebalanceamento && rebalanceamento.classes.length > 0 && (
+          <div className="overflow-x-auto rounded-lg border border-gray-700">
+            <table className="min-w-full divide-y divide-gray-700 text-sm">
+              <thead className="bg-gray-800 text-gray-400">
+                <tr>
+                  <th className="px-4 py-2 text-left">Setor</th>
+                  <th className="px-4 py-2 text-right">Meta</th>
+                  <th className="px-4 py-2 text-right">Atual</th>
+                  <th className="px-4 py-2 text-right">Valor Atual</th>
+                  <th className="px-4 py-2 text-right">Diferença</th>
+                  <th className="px-4 py-2 text-right">R$ a mover</th>
+                  <th className="px-4 py-2 text-center">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800 bg-gray-900">
+                {rebalanceamento.classes.map((c) => {
+                  const comprar = c.acao === 'COMPRAR'
+                  const vender = c.acao === 'VENDER'
+                  return (
+                    <tr key={c.classe} className="hover:bg-gray-800/50">
+                      <td className="px-4 py-3 font-medium text-white">{c.label}</td>
+                      <td className="px-4 py-3 text-right text-gray-400">{c.meta_pct.toFixed(1)}%</td>
+                      <td className={`px-4 py-3 text-right font-medium ${comprar ? 'text-red-400' : vender ? 'text-yellow-400' : 'text-gray-300'}`}>
+                        {c.atual_pct.toFixed(1)}%
+                      </td>
+                      <td className="px-4 py-3 text-right text-gray-300">
+                        {c.atual_valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </td>
+                      <td className={`px-4 py-3 text-right font-medium ${c.diff_pct > 0 ? 'text-emerald-400' : c.diff_pct < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                        {c.diff_pct > 0 ? '+' : ''}{c.diff_pct.toFixed(1)}%
+                      </td>
+                      <td className={`px-4 py-3 text-right font-bold ${comprar ? 'text-emerald-400' : vender ? 'text-red-400' : 'text-gray-500'}`}>
+                        {c.diff_valor > 0 ? '+' : ''}{c.diff_valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {comprar && <span className="rounded-full bg-emerald-900/60 px-2 py-0.5 text-xs font-semibold text-emerald-300">COMPRAR</span>}
+                        {vender  && <span className="rounded-full bg-red-900/60 px-2 py-0.5 text-xs font-semibold text-red-300">VENDER</span>}
+                        {!comprar && !vender && <span className="text-xs text-gray-600">OK</span>}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

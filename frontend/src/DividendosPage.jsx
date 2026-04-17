@@ -3,7 +3,7 @@ import { Bar, Line } from 'react-chartjs-2'
 import axios from 'axios'
 import DividendoModal from './DividendoModal'
 
-export default function DividendosPage() {
+export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
   const [chartData, setChartData] = useState(null)
   const [yieldChartData, setYieldChartData] = useState(null)
   const [ranking, setRanking] = useState([])
@@ -189,7 +189,7 @@ export default function DividendosPage() {
       .finally(() => {
         setLoading(false)
       })
-  }, [refreshKey])
+  }, [refreshKey, externalRefreshKey])
 
   const chartOptions = {
     responsive: true,

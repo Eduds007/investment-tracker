@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 
-export default function DashboardSummary() {
+export default function DashboardSummary({ refreshKey = 0 }) {
   const [totalPatrimonio, setTotalPatrimonio] = useState(0)
   const [patrimonioAnterior30d, setPatrimonioAnterior30d] = useState(0)
   const [metaPatrimonio, setMetaPatrimonio] = useState(0)
@@ -109,7 +109,7 @@ export default function DashboardSummary() {
     }).catch(() => {
       setLoading(false)
     })
-  }, [])
+  }, [refreshKey])
 
   useEffect(() => {
     // Buscar metas do localStorage

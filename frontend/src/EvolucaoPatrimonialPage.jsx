@@ -21,7 +21,7 @@ const COLORS = {
   OUTROS: '#94a3b8',
 }
 
-export default function EvolucaoPatrimonialPage() {
+export default function EvolucaoPatrimonialPage({ refreshKey = 0 }) {
   const [series, setSeries] = useState([])
   const [allocation, setAllocation] = useState([])
   const [allocationDate, setAllocationDate] = useState('')
@@ -136,7 +136,7 @@ export default function EvolucaoPatrimonialPage() {
       .finally(() => {
         setLoading(false)
       })
-  }, [])
+  }, [refreshKey])
 
   const first = series[0]
   const last = series[series.length - 1]

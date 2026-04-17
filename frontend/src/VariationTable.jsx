@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import axios from 'axios'
 
-export default function VariationTable() {
+export default function VariationTable({ refreshKey = 0 }) {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -75,7 +75,7 @@ export default function VariationTable() {
         setError('Erro ao carregar variações')
         setLoading(false)
       })
-  }, [])
+  }, [refreshKey])
 
   const fmt = (n) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)
 

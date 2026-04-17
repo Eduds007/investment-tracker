@@ -1,6 +1,11 @@
 from rest_framework import serializers
 from .models import Ativo, Indice, Posicao, Dividendo
 
+class AtivoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Ativo
+        fields = ['id', 'nome', 'classe_ativo']
+
 class IndiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Indice
