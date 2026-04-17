@@ -26,9 +26,25 @@ export default function IndicesPage() {
   const [error, setError] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [atualizando, setAtualizando] = useState(false)
+  const [resultadoAtualizacao, setResultadoAtualizacao] = useState(null)
 
   const handleIndiceCreated = () => {
     setRefreshKey((prev) => prev + 1)
+  }
+
+  const handleAtualizarIndices = async () => {
+    setAtualizando(true)
+    setResultadoAtualizacao(null)
+    try {
+      const res = await axios.post('http://localhost:8000/api/atualizar-indices/')
+      setResultadoAtualizacao(res.data)
+      setRefreshKey((prev) => prev + 1)
+    } catch (err) {
+      setResultadoAtualizacao({ success: false, error: err.message })
+    } finally {
+      setAtualizando(false)
+    }
   }
 
   useEffect(() => {
@@ -207,14 +223,37 @@ export default function IndicesPage() {
 
   return (
     <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mb-8 flex justify-end">
-        <button
-          type="button"
-          onClick={() => setIsModalOpen(true)}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          Novo índice
-        </button>
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+        {resultadoAtualizacao && (
+          <div className="flex flex-wrap gap-2 text-xs">
+            {resultadoAtualizacao.resultados?.map((r) => (
+              <span
+                key={r.nome}
+                className={`rounded px-2 py-1 font-medium ${r.status === 'ok' ? 'bg-emerald-900/60 text-emerald-300' : 'bg-red-900/60 text-red-300'}`}
+                title={r.status === 'erro' ? r.msg : `R$ ${r.valor}`}
+              >
+                {r.nome} {r.status === 'ok' ? '✓' : '✗'}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleAtualizarIndices}
+            disabled={atualizando}
+            className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {atualizando ? 'Atualizando...' : 'Atualizar índices'}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsModalOpen(true)}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Novo índice
+          </button>
+        </div>
       </div>
 
       <div className="space-y-8">

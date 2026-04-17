@@ -1,30 +1,6 @@
 from django.db import models
 from decimal import Decimal
 
-class Aporte(models.Model):
-    TIPO_CHOICES = [
-        ('COMPRA', 'Compra'),
-        ('SAQUE', 'Saque'),
-    ]
-    
-    data = models.DateField("Data", help_text="Data da operação")
-    tipo = models.CharField("Tipo", max_length=10, choices=TIPO_CHOICES, help_text="Compra ou Saque")
-    valor = models.DecimalField("Valor (R$)", max_digits=12, decimal_places=2, help_text="Valor em reais")
-    lugar = models.CharField("Local", max_length=50, help_text="Ex: CLEAR, INTER")
-    descricao = models.TextField("Descrição", blank=True, null=True, help_text="Descrição ou observações sobre o aporte")
-    
-    class Meta:
-        verbose_name = "Aporte"
-        verbose_name_plural = "Aportes"
-        ordering = ['-data']
-    
-    def __str__(self):
-        return f"{self.data.strftime('%d/%m/%Y')} - {self.get_tipo_display()} - R$ {self.valor} ({self.lugar})"
-    
-    def total_value(self):
-        return f"R$ {self.valor:,.2f}".replace(',', '.')
-
-
 
 class Ativo(models.Model):
     CLASSE_CHOICES = [

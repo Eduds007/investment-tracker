@@ -1,41 +1,5 @@
 from django.contrib import admin
-from django import forms
-from .models import Aporte, Ativo, Indice, Posicao, MetaPortfolio, Dividendo
-
-
-class AporteForm(forms.ModelForm):
-    descricao = forms.CharField(
-        widget=forms.TextInput(attrs={
-            'size': 15,
-            'style': 'width: 150px; height: 25px; font-size: 12px;',
-            'placeholder': ''
-        }),
-        required=False,
-        help_text=''
-    )
-    
-    class Meta:
-        model = Aporte
-        fields = ['data', 'tipo', 'valor', 'lugar', 'descricao']
-
-
-@admin.register(Aporte)
-class AporteAdmin(admin.ModelAdmin):
-    form = AporteForm
-    list_display = ('data', 'tipo', 'valor', 'lugar')
-    list_filter = ('tipo', 'lugar', 'data')
-    search_fields = ('lugar', 'descricao')
-    date_hierarchy = 'data'
-    ordering = ('-data',)
-    list_display_links = ('data',)
-    list_editable = ('valor',)
-    
-    fieldsets = (
-        ('Informações do Aporte', {
-            'fields': ('data', 'tipo', 'valor', 'lugar', 'descricao')
-        }),
-    )
-
+from .models import Ativo, Indice, Posicao, MetaPortfolio, Dividendo
 
 @admin.register(Indice)
 class IndiceAdmin(admin.ModelAdmin):
