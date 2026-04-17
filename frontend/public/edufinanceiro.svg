@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#1e40af" opacity="0.1"/>
+  
+  <!-- Coin stack representing investments -->
+  <g id="coins">
+    <!-- Bottom coin -->
+    <ellipse cx="100" cy="130" rx="35" ry="12" fill="#fbbf24"/>
+    <path d="M 65 130 Q 65 125 100 122 Q 135 125 135 130" fill="#f59e0b"/>
+    
+    <!-- Middle coin -->
+    <ellipse cx="92" cy="105" rx="35" ry="12" fill="#fcd34d"/>
+    <path d="M 57 105 Q 57 100 92 97 Q 127 100 127 105" fill="#fbbf24"/>
+    
+    <!-- Top coin -->
+    <ellipse cx="84" cy="80" rx="35" ry="12" fill="#fef08a"/>
+    <path d="M 49 80 Q 49 75 84 72 Q 119 75 119 80" fill="#fcd34d"/>
+  </g>
+  
+  <!-- Arrow pointing up (representing growth) -->
+  <g id="arrow" transform="translate(150, 60)">
+    <line x1="0" y1="30" x2="0" y2="0" stroke="#10b981" stroke-width="3" stroke-linecap="round"/>
+    <path d="M -6 8 L 0 0 L 6 8" stroke="#10b981" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  
+  <!-- Text -->
+  <text x="100" y="175" font-family="Arial, sans-serif" font-size="14" font-weight="bold" text-anchor="middle" fill="#1e40af">EduFinanceiro</text>
+</svg>
