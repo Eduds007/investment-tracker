@@ -134,10 +134,20 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
 
           return {
             label: month.label,
-            yield: patrimonioCarteira > 0
-              ? (totalDividendosDoMes / patrimonioCarteira) * 100
-              : 0,
+            yield: (() => {
+              if (patrimonioCarteira <= 0) return 0
+              const taxaMensal = totalDividendosDoMes / patrimonioCarteira
+              const taxaAnual = Math.pow(1 + taxaMensal, 12) - 1
+              return taxaAnual * 100
+            })(),
           }
+        })
+
+        const yieldMovingAverage12m = yieldData.map((_, idx) => {
+          const start = Math.max(0, idx - 11)
+          const window = yieldData.slice(start, idx + 1)
+          const total = window.reduce((sum, item) => sum + item.yield, 0)
+          return total / window.length
         })
 
         // Média móvel de 12 meses considerando apenas os meses já existentes até cada ponto
@@ -158,7 +168,8 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
               borderColor: '#f59e0b',
               backgroundColor: '#f59e0b',
               borderWidth: 2,
-              pointRadius: 2,
+              pointRadius: 5,
+              pointHoverRadius: 7,
               tension: 0.25,
               yAxisID: 'y',
             },
@@ -177,14 +188,25 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
           labels: yieldData.map((item) => item.label),
           datasets: [
             {
-              label: 'Dividend Yield geral da carteira (%)',
-              data: yieldData.map((item) => item.yield),
+              label: 'Dividend Yield anualizado (média móvel 12m) (%)',
+              data: yieldMovingAverage12m,
               borderColor: '#38bdf8',
               backgroundColor: 'rgba(56, 189, 248, 0.15)',
               borderWidth: 2,
               pointRadius: 3,
               tension: 0.3,
               fill: true,
+            },
+            {
+              label: 'Meta (6%)',
+              data: yieldData.map(() => 6),
+              borderColor: '#f43f5e',
+              backgroundColor: '#f43f5e',
+              borderWidth: 2,
+              pointRadius: 0,
+              tension: 0,
+              borderDash: [6, 6],
+              fill: false,
             },
           ],
         })
@@ -296,9 +318,9 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
 
       <div className="mt-8 rounded-lg border border-gray-800 bg-black p-6">
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-white">Dividend Yield geral da carteira</h2>
+          <h2 className="text-xl font-semibold text-white">Dividend Yield anualizado da carteira (MM 12m)</h2>
           <p className="mt-1 text-sm text-gray-400">
-            Cálculo mensal: dividendos recebidos no mês divididos pelo valor patrimonial da carteira no mês.
+            Série exibida como média móvel de 12 meses do Dividend Yield anualizado, onde taxa anual = (1 + taxa mensal)^12 - 1.
           </p>
         </div>
 
