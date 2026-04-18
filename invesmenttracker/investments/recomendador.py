@@ -53,28 +53,30 @@ def obter_recomendacoes(stocks_file=None):
 
             preco_atual = historico.iloc[-1]['Close']
 
-            # Calcular yield sempre em cima do preço atual
-            historico['yield'] = historico['Dividends'] / preco_atual
-            historico_div = historico[historico['yield'] != 0]
+            historico_div = historico[historico['Dividends'] != 0]
             
             # Dados dos últimos 12 meses
             historico_doze_meses = historico[historico.index >= doze_meses_str]
-            yield_doze_meses = historico_doze_meses['yield'].sum()
             dividends_doze_meses = historico_doze_meses['Dividends'].sum()
             
-            # Agrupar por ano
-            agrupado = historico_div.groupby(historico_div.index.year).sum()
-            
-            # Se estamos no mesmo ano que o último registro, usar yield de 12 meses
-            try:
-                if agrupado.index[-1] == hoje.year:
-                    agrupado.iloc[-1, 1] = yield_doze_meses
-            except:
-                pass
-            
-            # Calcular média e desvio padrão de yield
-            media = agrupado['yield'].mean()
-            desv = agrupado['yield'].std()
+            # Agrupar dividendos absolutos por ano, excluindo o ano atual.
+            # Em seguida adiciona o acumulado dos últimos 12 meses como período mais recente.
+            agrupado_div = historico_div.groupby(historico_div.index.year)['Dividends'].sum()
+            agrupado_fechado = agrupado_div[agrupado_div.index < hoje.year]
+            serie_dividendos = pd.concat(
+                [agrupado_fechado, pd.Series([dividends_doze_meses])],
+                ignore_index=True
+            )
+
+            media_abs = serie_dividendos.mean()
+            desv_abs = serie_dividendos.std()
+            if pd.isna(desv_abs):
+                desv_abs = 0.0
+
+            # Converter média e desvio absolutos para taxa pelo preço de fechamento atual.
+            media = (media_abs / preco_atual) if preco_atual > 0 else 0
+            desv = (desv_abs / preco_atual) if preco_atual > 0 else 0
+            periodos_validos = len(serie_dividendos)
             
             # Dados da ação
             ticker = stock
@@ -85,10 +87,10 @@ def obter_recomendacoes(stocks_file=None):
             potential = (target_price / preco - 1) if preco > 0 else 0
             
             # Lógica de recomendação
-            if potential > 0 and menos_dp >= 0.06 and dyield >= 0.06 and len(agrupado) >= 5:
+            if potential > 0 and menos_dp >= 0.06 and dyield >= 0.06 and periodos_validos >= 5:
                 recomenda = 'COMPRA'
                 score = 8.5 + (potential * 2)
-            elif (menos_dp >= 0.06 and dyield >= 0.06 and potential < 0 and len(agrupado) >= 5) or (dyield >= 0.06 and len(agrupado) >= 5):
+            elif (menos_dp >= 0.06 and dyield >= 0.06 and potential < 0 and periodos_validos >= 5) or (dyield >= 0.06 and periodos_validos >= 5):
                 recomenda = 'ESPERA'
                 score = 6.5 + (dyield * 10)
             else:
