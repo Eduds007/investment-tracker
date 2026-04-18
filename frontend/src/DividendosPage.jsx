@@ -21,6 +21,19 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
     setRefreshKey((prev) => prev + 1)
   }
 
+  const toNumber = (value) => {
+    if (typeof value === 'number') return value
+    if (typeof value !== 'string') return 0
+
+    const trimmed = value.trim()
+    const normalized =
+      trimmed.includes(',') && trimmed.includes('.')
+        ? trimmed.replace(/\./g, '').replace(',', '.')
+        : trimmed.replace(',', '.')
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+
   useEffect(() => {
     setLoading(true)
     setError('')
@@ -33,7 +46,6 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
         const dividendos = divRes.data || []
         const posicoes = posRes.data || []
         const totalsByAtivo = new Map()
-        const dividendosPorAtivo = new Set()
         const posicoesPorAtivo = new Map()
 
         // Pegar data atual e contar 12 meses para trás
@@ -49,19 +61,17 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
           })
         }
 
-        posicoes
-          .filter((pos) => pos.classe_ativo === 'ACAO')
-          .forEach((pos) => {
-            const ativoNome = pos.ativo || 'Sem ativo'
-            if (!posicoesPorAtivo.has(ativoNome)) {
-              posicoesPorAtivo.set(ativoNome, [])
-            }
+        posicoes.forEach((pos) => {
+          const ativoNome = pos.ativo || 'Sem ativo'
+          if (!posicoesPorAtivo.has(ativoNome)) {
+            posicoesPorAtivo.set(ativoNome, [])
+          }
 
-            posicoesPorAtivo.get(ativoNome).push({
-              data: new Date(`${pos.data}T00:00:00`),
-              valor: Number(pos.valor),
-            })
+          posicoesPorAtivo.get(ativoNome).push({
+            data: new Date(`${pos.data}T00:00:00`),
+            valor: toNumber(pos.valor),
           })
+        })
 
         posicoesPorAtivo.forEach((items) => {
           items.sort((a, b) => a.data - b.data)
@@ -71,8 +81,7 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
         dividendos.forEach((div) => {
           const divDate = new Date(`${div.data}T00:00:00`)
           const ativoNome = div.ativo || 'Sem ativo'
-          const valor = Number(div.valor)
-          dividendosPorAtivo.add(ativoNome)
+          const valor = toNumber(div.valor)
 
           const currentAtivo = totalsByAtivo.get(ativoNome) || {
             ativo: ativoNome,
@@ -101,34 +110,32 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
 
         const yieldData = months.map((month) => {
           const monthEnd = new Date(month.year, month.month + 1, 1)
-          const windowStart = new Date(month.year, month.month - 11, 1)
 
-          const dividendosJanela = dividendos.filter((div) => {
+          const dividendosDoMes = dividendos.filter((div) => {
             const divDate = new Date(`${div.data}T00:00:00`)
-            return divDate >= windowStart && divDate < monthEnd
+            return divDate.getFullYear() === month.year && divDate.getMonth() === month.month
           })
 
-          const totalDividendosJanela = dividendosJanela.reduce(
-            (sum, div) => sum + Number(div.valor),
+          const totalDividendosDoMes = dividendosDoMes.reduce(
+            (sum, div) => sum + toNumber(div.valor),
             0
           )
 
-          let patrimonioAcoesDividendadoras = 0
-          dividendosPorAtivo.forEach((ativoNome) => {
-            const historico = posicoesPorAtivo.get(ativoNome) || []
+          let patrimonioCarteira = 0
+          posicoesPorAtivo.forEach((historico) => {
             const posicaoMaisRecente = [...historico]
               .reverse()
               .find((item) => item.data < monthEnd)
 
             if (posicaoMaisRecente) {
-              patrimonioAcoesDividendadoras += posicaoMaisRecente.valor
+              patrimonioCarteira += posicaoMaisRecente.valor
             }
           })
 
           return {
             label: month.label,
-            yield: patrimonioAcoesDividendadoras > 0
-              ? (totalDividendosJanela / patrimonioAcoesDividendadoras) * 100
+            yield: patrimonioCarteira > 0
+              ? (totalDividendosDoMes / patrimonioCarteira) * 100
               : 0,
           }
         })
@@ -291,7 +298,7 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-white">Dividend Yield geral da carteira</h2>
           <p className="mt-1 text-sm text-gray-400">
-            Média móvel de 12 meses calculada pela soma dos dividendos distribuídos no período sobre o valor patrimonial das ações que pagaram dividendos.
+            Cálculo mensal: dividendos recebidos no mês divididos pelo valor patrimonial da carteira no mês.
           </p>
         </div>
 
