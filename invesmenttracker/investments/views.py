@@ -1,9 +1,64 @@
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+import re
+import unicodedata
 from .models import Ativo, Indice, Posicao, Dividendo, MetaPortfolio
 from .serializers import AtivoSerializer, IndiceSerializer, PosicaoSerializer, DividendoSerializer
 from .recomendador import sugerir_alocacao
+
+
+CANONICAL_LABELS = {
+    'RESERVA': 'Reserva de Emergência',
+    'CRIPTO': 'Criptos',
+    'ETF': "ETF's",
+    'ACAO': 'Ações',
+    'FII': 'FII',
+}
+
+
+def _normalize_key(value):
+    text = (str(value or '')).strip().upper()
+    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+    return re.sub(r'[^A-Z0-9]+', '', text)
+
+
+def _canonical_classe(value):
+    key = _normalize_key(value)
+
+    aliases = {
+        'RESERVA': 'RESERVA',
+        'RESERVADEEMERGENCIA': 'RESERVA',
+        'EMERGENCIA': 'RESERVA',
+        'SALDO': 'RESERVA',
+        'CRIPTO': 'CRIPTO',
+        'CRIPTOS': 'CRIPTO',
+        'CRYPTO': 'CRIPTO',
+        'CRYPTOS': 'CRIPTO',
+        'ETF': 'ETF',
+        'ETFS': 'ETF',
+        'ACAO': 'ACAO',
+        'ACOES': 'ACAO',
+        'AES': 'ACAO',
+        'FII': 'FII',
+        'FIIS': 'FII',
+    }
+
+    if key in aliases:
+        return aliases[key]
+
+    if key.startswith('ACO'):
+        return 'ACAO'
+    if key.startswith('CRIP'):
+        return 'CRIPTO'
+    if key.startswith('RESERV'):
+        return 'RESERVA'
+    if key.startswith('ETF'):
+        return 'ETF'
+    if key.startswith('FII'):
+        return 'FII'
+
+    return key
 
 class AtivoViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ativo.objects.all().order_by('classe_ativo', 'nome')
@@ -42,7 +97,7 @@ def registrar_posicao(request):
     """
     data       = request.data.get('data')
     ativo_nome = (request.data.get('ativo_nome') or '').strip().upper()
-    ativo_classe = request.data.get('ativo_classe', 'ACAO')
+    ativo_classe = _canonical_classe(request.data.get('ativo_classe', 'ACAO'))
     tipo       = request.data.get('tipo', 'ATUALIZACAO')
     valor      = float(request.data.get('valor', 0))
 
@@ -130,7 +185,6 @@ def atualizar_indices(request):
 def rebalanceamento(request):
     # Defaults alinhados com DEFAULT_WEIGHTS do IndicesPage
     DEFAULTS = {'RESERVA': 30.0, 'CRIPTO': 5.0, 'ETF': 20.0, 'ACAO': 20.0, 'FII': 25.0}
-    LABELS = {'RESERVA': 'Reserva de Emergência', 'CRIPTO': 'Criptos', 'ETF': "ETF's", 'ACAO': 'Ações', 'FII': 'FII'}
 
     ultima_data = Posicao.objects.order_by('-data').values_list('data', flat=True).first()
     if not ultima_data:
@@ -140,12 +194,14 @@ def rebalanceamento(request):
     por_classe = {}
     total = 0.0
     for p in posicoes:
-        classe = p.ativo.classe_ativo
+        classe = _canonical_classe(p.ativo.classe_ativo)
         por_classe[classe] = por_classe.get(classe, 0.0) + float(p.valor)
         total += float(p.valor)
 
     # MetaPortfolio do banco sobrescreve defaults
-    metas = {**DEFAULTS, **{m.tipo: float(m.meta) for m in MetaPortfolio.objects.all()}}
+    metas = dict(DEFAULTS)
+    for meta in MetaPortfolio.objects.all():
+        metas[_canonical_classe(meta.tipo)] = float(meta.meta)
 
     classes = []
     for classe, meta_pct in metas.items():
@@ -156,7 +212,7 @@ def rebalanceamento(request):
         acao = 'COMPRAR' if diff_valor > 50 else ('VENDER' if diff_valor < -50 else 'OK')
         classes.append({
             'classe': classe,
-            'label': LABELS.get(classe, classe),
+            'label': CANONICAL_LABELS.get(classe, classe),
             'meta_pct': round(meta_pct, 1),
             'atual_pct': round(atual_pct, 1),
             'atual_valor': round(atual, 2),
