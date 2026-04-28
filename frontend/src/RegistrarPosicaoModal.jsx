@@ -19,7 +19,7 @@ const CLASSES = [
 const today = () => new Date().toISOString().split('T')[0]
 
 export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
-  const [tipo, setTipo] = useState('COMPRA')
+  const [tipo, setTipo] = useState('ATUALIZACAO')
   const [data, setData] = useState(today())
   const [ativoNome, setAtivoNome] = useState('')
   const [ativoClasse, setAtivoClasse] = useState('ACAO')
@@ -57,7 +57,7 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
       onClose()
       setAtivoNome('')
       setValor('')
-      setTipo('COMPRA')
+      setTipo('ATUALIZACAO')
     } catch (err) {
       setErro(err.response?.data?.error || 'Erro ao registrar.')
     } finally {
