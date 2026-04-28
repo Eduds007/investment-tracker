@@ -226,6 +226,57 @@ def rebalanceamento(request):
 
 
 @api_view(['GET'])
+def ultimos_registros(request):
+    limit = int(request.query_params.get('limit', 100))
+
+    posicoes = list(
+        Posicao.objects.select_related('ativo').order_by('-data', '-id')[:limit]
+        .values('id', 'data', 'valor', 'ativo__nome', 'ativo__classe_ativo')
+    )
+    indices = list(
+        Indice.objects.order_by('-data', '-id')[:limit]
+        .values('id', 'data', 'nome', 'valor')
+    )
+    dividendos = list(
+        Dividendo.objects.select_related('ativo').order_by('-data', '-id')[:limit]
+        .values('id', 'data', 'valor', 'tipo', 'ativo__nome')
+    )
+
+    registros = []
+    for p in posicoes:
+        registros.append({
+            'tipo': 'posicao',
+            'data': str(p['data']),
+            'id': p['id'],
+            'nome': p['ativo__nome'],
+            'classe': p['ativo__classe_ativo'],
+            'valor': float(p['valor']),
+        })
+    for i in indices:
+        registros.append({
+            'tipo': 'indice',
+            'data': str(i['data']),
+            'id': i['id'],
+            'nome': i['nome'],
+            'classe': 'INDICE',
+            'valor': float(i['valor']),
+        })
+    for d in dividendos:
+        registros.append({
+            'tipo': 'dividendo',
+            'data': str(d['data']),
+            'id': d['id'],
+            'nome': d['ativo__nome'],
+            'classe': 'DIVIDENDO',
+            'valor': float(d['valor']),
+            'subtipo': d['tipo'] or '',
+        })
+
+    registros.sort(key=lambda x: x['data'], reverse=True)
+    return Response({'success': True, 'registros': registros[:limit]})
+
+
+@api_view(['GET'])
 def sugestao_aporte(request):
     try:
         valor = float(request.query_params.get('valor', 100))
