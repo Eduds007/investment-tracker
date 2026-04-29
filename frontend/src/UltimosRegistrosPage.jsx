@@ -23,33 +23,126 @@ function fmt(valor, tipo) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-const ENDPOINT_DELETE = {
+const ENDPOINT = {
   posicao:   (id) => `http://localhost:8000/api/posicoes/${id}/`,
   indice:    (id) => `http://localhost:8000/api/indices/${id}/`,
   dividendo: (id) => `http://localhost:8000/api/dividendos/${id}/`,
 }
 
-export default function UltimosRegistrosPage({ refreshKey }) {
-  const [registros, setRegistros] = useState([])
-  const [loading, setLoading]   = useState(true)
-  const [error, setError]       = useState('')
-  const [filtroTipo, setFiltroTipo] = useState('todos')
-  const [busca, setBusca]       = useState('')
-  const [deletando, setDeletando] = useState(null)
+function EditableRow({ r, onDelete, onUpdate }) {
+  const [editing, setEditing] = useState(false)
+  const [valor, setValor]     = useState(String(r.valor))
+  const [saving, setSaving]     = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-  const handleDelete = async (r) => {
-    if (!confirm(`Deletar ${r.nome} (${r.data})?`)) return
-    const key = `${r.tipo}-${r.id}`
-    setDeletando(key)
+  const cfg = TIPO_CONFIG[r.tipo]
+
+  const handleSave = async () => {
+    const novo = parseFloat(valor)
+    if (!novo || novo <= 0) return
+    setSaving(true)
     try {
-      await axios.delete(ENDPOINT_DELETE[r.tipo](r.id))
-      setRegistros(prev => prev.filter(x => !(x.tipo === r.tipo && x.id === r.id)))
+      await axios.patch(ENDPOINT[r.tipo](r.id), { valor: novo })
+      onUpdate(r, novo)
+      setEditing(false)
     } catch {
-      alert('Erro ao deletar registro.')
+      alert('Erro ao salvar.')
     } finally {
-      setDeletando(null)
+      setSaving(false)
     }
   }
+
+  const handleDelete = async () => {
+    if (!confirm(`Deletar ${r.nome} (${r.data})?`)) return
+    setDeleting(true)
+    try {
+      await axios.delete(ENDPOINT[r.tipo](r.id))
+      onDelete(r)
+    } catch {
+      alert('Erro ao deletar registro.')
+      setDeleting(false)
+    }
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') handleSave()
+    if (e.key === 'Escape') { setValor(String(r.valor)); setEditing(false) }
+  }
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-800/50 transition-colors">
+      <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold text-white ${cfg.cor}`}>
+        {cfg.label}
+      </span>
+      <span className={`flex-1 font-medium ${CLASSE_COR[r.classe] ?? 'text-gray-200'}`}>
+        {r.nome}
+        {r.subtipo && <span className="ml-1 text-xs text-gray-500">({r.subtipo})</span>}
+      </span>
+      {r.classe && r.classe !== 'INDICE' && r.classe !== 'DIVIDENDO' && (
+        <span className="text-xs text-gray-500 shrink-0">{r.classe}</span>
+      )}
+
+      {editing ? (
+        <div className="flex items-center gap-1 shrink-0">
+          <input
+            autoFocus
+            type="number"
+            min="0.0001"
+            step="0.01"
+            value={valor}
+            onChange={e => setValor(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-32 rounded border border-blue-500 bg-gray-800 px-2 py-0.5 text-right font-mono text-sm text-white focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40"
+          >
+            {saving ? '…' : '✓'}
+          </button>
+          <button
+            type="button"
+            onClick={() => { setValor(String(r.valor)); setEditing(false) }}
+            className="rounded px-2 py-0.5 text-xs text-gray-400 hover:text-white"
+          >
+            ✕
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="font-mono text-sm text-white">{fmt(r.valor, r.tipo)}</span>
+          <button
+            type="button"
+            onClick={() => { setValor(String(r.valor)); setEditing(true) }}
+            className="rounded p-1 text-gray-500 hover:text-blue-400 hover:bg-blue-900/20 transition-colors"
+            title="Editar valor"
+          >
+            ✎
+          </button>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={deleting}
+        className="shrink-0 rounded p-1 text-gray-600 hover:text-red-400 hover:bg-red-900/20 transition-colors disabled:opacity-40"
+        title="Deletar"
+      >
+        {deleting ? '…' : '✕'}
+      </button>
+    </div>
+  )
+}
+
+export default function UltimosRegistrosPage({ refreshKey }) {
+  const [registros, setRegistros] = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [error, setError]         = useState('')
+  const [filtroTipo, setFiltroTipo] = useState('todos')
+  const [busca, setBusca]         = useState('')
 
   useEffect(() => {
     setLoading(true)
@@ -60,13 +153,20 @@ export default function UltimosRegistrosPage({ refreshKey }) {
       .finally(() => setLoading(false))
   }, [refreshKey])
 
+  const handleDelete = (r) =>
+    setRegistros(prev => prev.filter(x => !(x.tipo === r.tipo && x.id === r.id)))
+
+  const handleUpdate = (r, novoValor) =>
+    setRegistros(prev => prev.map(x =>
+      x.tipo === r.tipo && x.id === r.id ? { ...x, valor: novoValor } : x
+    ))
+
   const filtrados = registros.filter(r => {
     if (filtroTipo !== 'todos' && r.tipo !== filtroTipo) return false
     if (busca && !r.nome.toLowerCase().includes(busca.toLowerCase())) return false
     return true
   })
 
-  // Agrupa por data
   const porData = filtrados.reduce((acc, r) => {
     if (!acc[r.data]) acc[r.data] = []
     acc[r.data].push(r)
@@ -123,35 +223,14 @@ export default function UltimosRegistrosPage({ refreshKey }) {
           </div>
 
           <div className="divide-y divide-gray-800">
-            {porData[data].map((r, i) => {
-              const cfg = TIPO_CONFIG[r.tipo]
-              return (
-                <div key={`${r.tipo}-${r.id}-${i}`} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-800/50 transition-colors">
-                  <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold text-white ${cfg.cor}`}>
-                    {cfg.label}
-                  </span>
-                  <span className={`flex-1 font-medium ${CLASSE_COR[r.classe] ?? 'text-gray-200'}`}>
-                    {r.nome}
-                    {r.subtipo && <span className="ml-1 text-xs text-gray-500">({r.subtipo})</span>}
-                  </span>
-                  {r.classe && r.classe !== 'INDICE' && r.classe !== 'DIVIDENDO' && (
-                    <span className="text-xs text-gray-500 shrink-0">{r.classe}</span>
-                  )}
-                  <span className="shrink-0 font-mono text-sm text-white">
-                    {fmt(r.valor, r.tipo)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(r)}
-                    disabled={deletando === `${r.tipo}-${r.id}`}
-                    className="shrink-0 ml-1 rounded p-1 text-gray-600 hover:text-red-400 hover:bg-red-900/20 transition-colors disabled:opacity-40"
-                    title="Deletar"
-                  >
-                    {deletando === `${r.tipo}-${r.id}` ? '…' : '✕'}
-                  </button>
-                </div>
-              )
-            })}
+            {porData[data].map((r, i) => (
+              <EditableRow
+                key={`${r.tipo}-${r.id}-${i}`}
+                r={r}
+                onDelete={handleDelete}
+                onUpdate={handleUpdate}
+              />
+            ))}
           </div>
         </div>
       ))}
