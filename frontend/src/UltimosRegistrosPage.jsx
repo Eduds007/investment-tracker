@@ -23,12 +23,33 @@ function fmt(valor, tipo) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+const ENDPOINT_DELETE = {
+  posicao:   (id) => `http://localhost:8000/api/posicoes/${id}/`,
+  indice:    (id) => `http://localhost:8000/api/indices/${id}/`,
+  dividendo: (id) => `http://localhost:8000/api/dividendos/${id}/`,
+}
+
 export default function UltimosRegistrosPage({ refreshKey }) {
   const [registros, setRegistros] = useState([])
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState('')
   const [filtroTipo, setFiltroTipo] = useState('todos')
   const [busca, setBusca]       = useState('')
+  const [deletando, setDeletando] = useState(null)
+
+  const handleDelete = async (r) => {
+    if (!confirm(`Deletar ${r.nome} (${r.data})?`)) return
+    const key = `${r.tipo}-${r.id}`
+    setDeletando(key)
+    try {
+      await axios.delete(ENDPOINT_DELETE[r.tipo](r.id))
+      setRegistros(prev => prev.filter(x => !(x.tipo === r.tipo && x.id === r.id)))
+    } catch {
+      alert('Erro ao deletar registro.')
+    } finally {
+      setDeletando(null)
+    }
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -119,6 +140,15 @@ export default function UltimosRegistrosPage({ refreshKey }) {
                   <span className="shrink-0 font-mono text-sm text-white">
                     {fmt(r.valor, r.tipo)}
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(r)}
+                    disabled={deletando === `${r.tipo}-${r.id}`}
+                    className="shrink-0 ml-1 rounded p-1 text-gray-600 hover:text-red-400 hover:bg-red-900/20 transition-colors disabled:opacity-40"
+                    title="Deletar"
+                  >
+                    {deletando === `${r.tipo}-${r.id}` ? '…' : '✕'}
+                  </button>
                 </div>
               )
             })}
