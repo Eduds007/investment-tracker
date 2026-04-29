@@ -27,6 +27,7 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
   const [ativos, setAtivos] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [erro, setErro] = useState(null)
+  const [sucesso, setSucesso] = useState(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -46,7 +47,7 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
     setSubmitting(true)
     setErro(null)
     try {
-      await axios.post('http://localhost:8000/api/registrar-posicao/', {
+      const res = await axios.post('http://localhost:8000/api/registrar-posicao/', {
         data,
         ativo_nome: ativoNome.trim().toUpperCase(),
         ativo_classe: ativoClasse,
@@ -54,10 +55,10 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
         valor: parseFloat(valor),
       })
       onSuccess()
-      onClose()
+      const labelTipo = { COMPRA: 'Compra', VENDA: 'Venda', ATUALIZACAO: 'Atualização' }[tipo]
+      setSucesso(`${labelTipo} de ${res.data.ativo} registrada: R$ ${Number(res.data.valor_novo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
       setAtivoNome('')
       setValor('')
-      setTipo('ATUALIZACAO')
     } catch (err) {
       setErro(err.response?.data?.error || 'Erro ao registrar.')
     } finally {
@@ -82,7 +83,7 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
             <button
               key={t.value}
               type="button"
-              onClick={() => setTipo(t.value)}
+              onClick={() => { setTipo(t.value); setSucesso(null); setErro(null) }}
               className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
                 tipo === t.value
                   ? t.value === 'COMPRA'  ? 'border-emerald-500 bg-emerald-900/50 text-emerald-300'
@@ -157,15 +158,20 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
           />
         </div>
 
+        {sucesso && (
+          <p className="mb-4 rounded-lg border border-emerald-700 bg-emerald-900/30 px-3 py-2 text-xs text-emerald-400">
+            ✓ {sucesso}
+          </p>
+        )}
         {erro && <p className="mb-4 rounded-lg border border-red-700 bg-red-900/30 px-3 py-2 text-xs text-red-400">{erro}</p>}
 
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => { setSucesso(null); setErro(null); onClose() }}
             className="flex-1 rounded-lg border border-gray-600 py-2 text-sm font-medium text-gray-300 hover:bg-gray-800"
           >
-            Cancelar
+            Fechar
           </button>
           <button
             type="button"
