@@ -41,9 +41,11 @@ export default function IndiceModal({ isOpen, onClose, onSuccess }) {
     setSubmitting(true)
     setError('')
     try {
+      const nomeRaw = form.nome.trim().toUpperCase()
+      const nome = ['IPCA', 'INFLAÇÃO', 'INFLACAO', 'INFAÇÃO', 'INFACAO'].includes(nomeRaw) ? 'INFLACAO' : nomeRaw
       await axios.post('http://localhost:8000/api/indices/', {
         data: form.data,
-        nome: form.nome.trim(),
+        nome,
         valor: Number(form.valor),
       })
       setForm(initialForm)
