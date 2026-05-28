@@ -16,4 +16,5 @@ urlpatterns = [
     path('api/rebalanceamento/', views.rebalanceamento, name='rebalanceamento'),
     path('api/registrar-posicao/', views.registrar_posicao, name='registrar-posicao'),
     path('api/atualizar-indices/', views.atualizar_indices, name='atualizar-indices'),
+    path('api/ultimos-registros/', views.ultimos_registros, name='ultimos-registros'),
 ]

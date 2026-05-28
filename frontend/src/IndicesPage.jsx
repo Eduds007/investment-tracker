@@ -169,13 +169,24 @@ export default function IndicesPage() {
     }
   }, [indicesData, weights, totalWeight])
 
-  const getChartData = (dados) => {
+  const getChartData = (dados, cumulative = false) => {
+    let values
+    if (cumulative) {
+      let acc = 1
+      values = dados.map((item) => {
+        acc = acc * (1 + Number(item.valor) / 100)
+        return parseFloat(((acc - 1) * 100).toFixed(4))
+      })
+    } else {
+      values = dados.map((item) => Number(item.valor))
+    }
+
     return {
       labels: dados.map((item) => formatDate(item.data)),
       datasets: [
         {
-          label: 'Valor',
-          data: dados.map((item) => Number(item.valor)),
+          label: cumulative ? 'Acumulado (%)' : 'Valor',
+          data: values,
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.1)',
           fill: true,
@@ -326,18 +337,24 @@ export default function IndicesPage() {
           </div>
         </div>
 
-        {indicesData.map((indice) => (
-          <div key={indice.nome} className="rounded-lg border border-gray-800 bg-black p-6">
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-white">{indice.nome}</h2>
-              <p className="text-sm text-gray-400">{indice.dados.length} registros</p>
-            </div>
+        {indicesData.map((indice) => {
+          const isCumulative = indice.nome.toUpperCase() === 'INFLACAO'
+          return (
+            <div key={indice.nome} className="rounded-lg border border-gray-800 bg-black p-6">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold text-white">{indice.nome}</h2>
+                <p className="text-sm text-gray-400">
+                  {indice.dados.length} registros
+                  {isCumulative && ' · inflação acumulada (%) desde o primeiro registro'}
+                </p>
+              </div>
 
-            <div className="h-96 w-full">
-              <Line data={getChartData(indice.dados)} options={chartOptions} />
+              <div className="h-96 w-full">
+                <Line data={getChartData(indice.dados, isCumulative)} options={chartOptions} />
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
 
       <IndiceModal
