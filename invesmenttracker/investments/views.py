@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from decimal import Decimal, InvalidOperation
 import re
 import unicodedata
-from .models import Ativo, Indice, Posicao, Dividendo, MetaPortfolio
+from .models import Ativo, Indice, Posicao, Dividendo, MetaPortfolio, recalcular_ativo
 from .serializers import AtivoSerializer, IndiceSerializer, PosicaoSerializer, DividendoSerializer
 from .recomendador import sugerir_alocacao, avaliar_carteira_preco_medio
 
@@ -79,6 +79,13 @@ class PosicaoViewSet(viewsets.ModelViewSet):
     ordering_fields = ['data', 'ativo__classe_ativo', 'ativo__nome']
     ordering = ['-data', 'ativo__classe_ativo', 'ativo__nome']
 
+    def perform_destroy(self, instance):
+        ativo = instance.ativo
+        tinha_movimento = instance.quantidade is not None and instance.tipo in ('COMPRA', 'VENDA')
+        instance.delete()
+        if tinha_movimento:
+            recalcular_ativo(ativo)
+
 class DividendoViewSet(viewsets.ModelViewSet):
     queryset = Dividendo.objects.all()
     serializer_class = DividendoSerializer
@@ -100,6 +107,10 @@ def registrar_posicao(request):
     médio do ativo (Ativo.preco_medio) é recalculado como média ponderada
     pela quantidade. Numa VENDA, quantidade informada apenas reduz o total
     em carteira — o preço médio não muda (zera se a posição for zerada).
+
+    A Posicao criada/atualizada guarda um snapshot da movimentação
+    (quantidade, preco_unitario, preco_medio do ativo no momento) para
+    exibição no histórico — não afeta o cálculo do preço médio corrente.
     """
     data       = request.data.get('data')
     ativo_nome = (request.data.get('ativo_nome') or '').strip().upper()
@@ -150,7 +161,13 @@ def registrar_posicao(request):
 
     posicao, criado = Posicao.objects.update_or_create(
         data=data, ativo=ativo,
-        defaults={'valor': round(novo_valor, 2)}
+        defaults={
+            'valor': round(novo_valor, 2),
+            'tipo': tipo,
+            'quantidade': quantidade if quantidade and quantidade > 0 else None,
+            'preco_unitario': preco_unitario if preco_unitario and preco_unitario > 0 else None,
+            'preco_medio': ativo.preco_medio,
+        }
     )
 
     return Response({
@@ -265,7 +282,7 @@ def ultimos_registros(request):
 
     posicoes = list(
         Posicao.objects.select_related('ativo').order_by('-data', '-id')[:limit]
-        .values('id', 'data', 'valor', 'ativo__nome', 'ativo__classe_ativo')
+        .values('id', 'data', 'valor', 'tipo', 'quantidade', 'preco_unitario', 'preco_medio', 'ativo__nome', 'ativo__classe_ativo')
     )
     indices = list(
         Indice.objects.order_by('-data', '-id')[:limit]
@@ -285,6 +302,10 @@ def ultimos_registros(request):
             'nome': p['ativo__nome'],
             'classe': p['ativo__classe_ativo'],
             'valor': float(p['valor']),
+            'tipo_movimentacao': p['tipo'],
+            'quantidade': float(p['quantidade']) if p['quantidade'] is not None else None,
+            'preco_unitario': float(p['preco_unitario']) if p['preco_unitario'] is not None else None,
+            'preco_medio': float(p['preco_medio']) if p['preco_medio'] is not None else None,
         })
     for i in indices:
         registros.append({

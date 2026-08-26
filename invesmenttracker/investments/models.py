@@ -42,10 +42,20 @@ class Indice(models.Model):
 
 
 class Posicao(models.Model):
+    TIPO_CHOICES = [
+        ('COMPRA', 'Compra'),
+        ('VENDA', 'Venda'),
+        ('ATUALIZACAO', 'Atualização'),
+    ]
+
     data = models.DateField("Data", help_text="Data da posição")
     ativo = models.ForeignKey(Ativo, on_delete=models.PROTECT, help_text="Ativo referenciado")
     valor = models.DecimalField("Valor (R$)", max_digits=15, decimal_places=2, help_text="Quanto você tem em reais neste ativo")
-    
+    tipo = models.CharField("Tipo de movimentação", max_length=20, choices=TIPO_CHOICES, null=True, blank=True, help_text="Se esta posição veio de uma compra, venda ou atualização de valor")
+    quantidade = models.DecimalField("Quantidade movimentada", max_digits=18, decimal_places=8, null=True, blank=True, help_text="Quantidade comprada/vendida nesta movimentação, quando aplicável")
+    preco_unitario = models.DecimalField("Preço por unidade (R$)", max_digits=15, decimal_places=4, null=True, blank=True, help_text="Preço por unidade desta movimentação (valor / quantidade)")
+    preco_medio = models.DecimalField("Preço médio do ativo (R$)", max_digits=15, decimal_places=4, null=True, blank=True, help_text="Preço médio do ativo logo após esta movimentação")
+
     class Meta:
         verbose_name = "Posição"
         verbose_name_plural = "Posições"
@@ -54,6 +64,36 @@ class Posicao(models.Model):
     
     def __str__(self):
         return f"{self.data.strftime('%d/%m/%Y')} - {self.ativo.nome} ({self.ativo.get_classe_ativo_display()}): R$ {self.valor}"
+
+
+def recalcular_ativo(ativo):
+    """
+    Reconstrói Ativo.quantidade e Ativo.preco_medio (e o snapshot Posicao.preco_medio
+    de cada movimentação) a partir do zero, reaplicando em ordem cronológica todas
+    as Posicoes do ativo com tipo COMPRA/VENDA e quantidade preenchida.
+
+    Chamado depois de editar ou apagar uma movimentação (ticker, quantidade ou
+    preço), já que o estado corrente do ativo não é armazenado de forma
+    incremental-reversível.
+    """
+    quantidade = Decimal('0')
+    preco_medio = None
+    movimentos = ativo.posicao_set.exclude(quantidade=None).exclude(tipo__isnull=True).order_by('data', 'id')
+    for m in movimentos:
+        if m.tipo == 'COMPRA' and m.preco_unitario:
+            nova_qtd = quantidade + m.quantidade
+            preco_medio = ((quantidade * (preco_medio or Decimal('0'))) + (m.quantidade * m.preco_unitario)) / nova_qtd
+            quantidade = nova_qtd
+        elif m.tipo == 'VENDA':
+            quantidade = max(quantidade - m.quantidade, Decimal('0'))
+            if quantidade == 0:
+                preco_medio = None
+        if m.preco_medio != preco_medio:
+            m.preco_medio = preco_medio
+            m.save(update_fields=['preco_medio'])
+    ativo.quantidade = quantidade
+    ativo.preco_medio = preco_medio
+    ativo.save(update_fields=['quantidade', 'preco_medio'])
 
 
 class MetaPortfolio(models.Model):

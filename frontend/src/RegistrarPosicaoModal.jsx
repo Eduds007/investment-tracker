@@ -25,7 +25,6 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
   const [ativoClasse, setAtivoClasse] = useState('ACAO')
   const [valor, setValor] = useState('')
   const [quantidade, setQuantidade] = useState('')
-  const [precoUnitario, setPrecoUnitario] = useState('')
   const [ativos, setAtivos] = useState([])
   const [posicoes, setPosicoes] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -48,14 +47,6 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
   const CLASSES_COM_UNIDADE = ['ACAO', 'FII', 'ETF']
   const usaQuantidade = (tipo === 'COMPRA' || tipo === 'VENDA') && CLASSES_COM_UNIDADE.includes(ativoClasse)
 
-  // Preço médio (compra) recalcula o valor total automaticamente a partir de quantidade x preço
-  useEffect(() => {
-    if (!usaQuantidade) return
-    const qtd = parseFloat(quantidade)
-    const preco = parseFloat(precoUnitario)
-    if (qtd > 0 && preco > 0) setValor((qtd * preco).toFixed(2))
-  }, [quantidade, precoUnitario, usaQuantidade])
-
   const canSubmit = data && ativoNome.trim() && parseFloat(valor) > 0 && !submitting
 
   const handleSubmit = async () => {
@@ -71,7 +62,7 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
       }
       if (usaQuantidade && parseFloat(quantidade) > 0) {
         payload.quantidade = parseFloat(quantidade)
-        if (parseFloat(precoUnitario) > 0) payload.preco_unitario = parseFloat(precoUnitario)
+        payload.preco_unitario = parseFloat(valor) / parseFloat(quantidade)
       }
       const res = await axios.post('http://localhost:8000/api/registrar-posicao/', payload)
       onSuccess()
@@ -80,7 +71,6 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
       setAtivoNome('')
       setValor('')
       setQuantidade('')
-      setPrecoUnitario('')
     } catch (err) {
       setErro(err.response?.data?.error || 'Erro ao registrar.')
     } finally {
@@ -115,7 +105,7 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
             <button
               key={t.value}
               type="button"
-              onClick={() => { setTipo(t.value); setSucesso(null); setErro(null); setQuantidade(''); setPrecoUnitario('') }}
+              onClick={() => { setTipo(t.value); setSucesso(null); setErro(null); setQuantidade('') }}
               className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
                 tipo === t.value
                   ? t.value === 'COMPRA'  ? 'border-emerald-500 bg-emerald-900/50 text-emerald-300'
@@ -182,35 +172,19 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
           </div>
         )}
 
-        {/* Quantidade e preço unitário — usados para calcular o preço médio */}
+        {/* Quantidade — junto com o Valor total, dá pra derivar o preço por unidade */}
         {usaQuantidade && (
-          <div className="mb-4 grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-400">Quantidade</label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={quantidade}
-                onChange={e => setQuantidade(e.target.value)}
-                placeholder="0"
-                className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-400">
-                Preço por unidade (R$) {tipo === 'COMPRA' && <span className="text-gray-600">— recalcula o médio</span>}
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={precoUnitario}
-                onChange={e => setPrecoUnitario(e.target.value)}
-                placeholder="0,00"
-                className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
-              />
-            </div>
+          <div className="mb-4">
+            <label className="mb-1 block text-xs font-medium text-gray-400">Quantidade</label>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={quantidade}
+              onChange={e => setQuantidade(e.target.value)}
+              placeholder="0"
+              className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+            />
           </div>
         )}
 
