@@ -24,7 +24,10 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
   const [ativoNome, setAtivoNome] = useState('')
   const [ativoClasse, setAtivoClasse] = useState('ACAO')
   const [valor, setValor] = useState('')
+  const [quantidade, setQuantidade] = useState('')
+  const [precoMedioAtual, setPrecoMedioAtual] = useState(null)
   const [ativos, setAtivos] = useState([])
+  const [posicoes, setPosicoes] = useState([])
   const [submitting, setSubmitting] = useState(false)
   const [erro, setErro] = useState(null)
   const [sucesso, setSucesso] = useState(null)
@@ -32,16 +35,25 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
   useEffect(() => {
     if (!isOpen) return
     axios.get('http://localhost:8000/api/ativos/').then(res => setAtivos(res.data || [])).catch(() => {})
+    axios.get('http://localhost:8000/api/posicoes/').then(res => setPosicoes(res.data || [])).catch(() => {})
   }, [isOpen])
 
-  // Preenche classe automaticamente ao selecionar ativo existente
+  // Preenche classe e preço médio automaticamente ao selecionar ativo existente
   const handleAtivoChange = (nome) => {
     setAtivoNome(nome)
     const found = ativos.find(a => a.nome === nome.toUpperCase())
-    if (found) setAtivoClasse(found.classe_ativo)
+    if (found) {
+      setAtivoClasse(found.classe_ativo)
+      const ultima = posicoes
+        .filter(p => p.ativo === found.nome)
+        .sort((a, b) => b.data.localeCompare(a.data))[0]
+      setPrecoMedioAtual(ultima ? ultima.preco_medio_compra : null)
+    } else {
+      setPrecoMedioAtual(null)
+    }
   }
 
-  const canSubmit = data && ativoNome.trim() && parseFloat(valor) > 0 && !submitting
+  const canSubmit = data && ativoNome.trim() && parseFloat(valor) > 0 && parseFloat(quantidade) > 0 && !submitting
 
   const handleSubmit = async () => {
     setSubmitting(true)
@@ -53,12 +65,16 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
         ativo_classe: ativoClasse,
         tipo,
         valor: parseFloat(valor),
+        quantidade: parseFloat(quantidade),
       })
       onSuccess()
       const labelTipo = { COMPRA: 'Compra', VENDA: 'Venda', ATUALIZACAO: 'Atualização' }[tipo]
-      setSucesso(`${labelTipo} de ${res.data.ativo} registrada: R$ ${Number(res.data.valor_novo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`)
-      setAtivoNome('')
+      setSucesso(`${labelTipo} de ${res.data.ativo} registrada: R$ ${Number(res.data.valor_novo).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} (${Number(res.data.quantidade_nova).toLocaleString('pt-BR', { maximumFractionDigits: 4 })} un.)`)
       setValor('')
+      setQuantidade('')
+      setPrecoMedioAtual(res.data.preco_medio_novo)
+      axios.get('http://localhost:8000/api/ativos/').then(r => setAtivos(r.data || [])).catch(() => {})
+      axios.get('http://localhost:8000/api/posicoes/').then(r => setPosicoes(r.data || [])).catch(() => {})
     } catch (err) {
       setErro(err.response?.data?.error || 'Erro ao registrar.')
     } finally {
@@ -126,6 +142,11 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
           <datalist id="ativos-list">
             {ativos.map(a => <option key={a.id} value={a.nome} />)}
           </datalist>
+          {precoMedioAtual !== null && (
+            <p className="mt-1 text-xs text-gray-400">
+              Preço médio atual: <span className="text-gray-200">R$ {Number(precoMedioAtual).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}</span>
+            </p>
+          )}
         </div>
 
         {/* Classe — só mostra se ativo for novo */}
@@ -142,20 +163,36 @@ export default function RegistrarPosicaoModal({ isOpen, onClose, onSuccess }) {
           </div>
         )}
 
-        {/* Valor */}
-        <div className="mb-5">
-          <label className="mb-1 block text-xs font-medium text-gray-400">
-            {tipo === 'ATUALIZACAO' ? 'Novo valor total (R$)' : tipo === 'COMPRA' ? 'Valor comprado (R$)' : 'Valor vendido (R$)'}
-          </label>
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            value={valor}
-            onChange={e => setValor(e.target.value)}
-            placeholder="0,00"
-            className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
-          />
+        {/* Valor e Quantidade */}
+        <div className="mb-5 grid grid-cols-2 gap-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-400">
+              {tipo === 'ATUALIZACAO' ? 'Novo valor total (R$)' : tipo === 'COMPRA' ? 'Valor comprado (R$)' : 'Valor vendido (R$)'}
+            </label>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={valor}
+              onChange={e => setValor(e.target.value)}
+              placeholder="0,00"
+              className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-gray-400">
+              {tipo === 'ATUALIZACAO' ? 'Quantidade total' : tipo === 'COMPRA' ? 'Quantidade comprada' : 'Quantidade vendida'}
+            </label>
+            <input
+              type="number"
+              min="0.0001"
+              step="0.0001"
+              value={quantidade}
+              onChange={e => setQuantidade(e.target.value)}
+              placeholder="0"
+              className="w-full rounded-lg border border-gray-600 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
+            />
+          </div>
         </div>
 
         {sucesso && (

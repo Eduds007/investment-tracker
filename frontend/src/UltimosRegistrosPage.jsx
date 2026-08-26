@@ -7,6 +7,12 @@ const TIPO_CONFIG = {
   dividendo:{ label: 'Dividendo', cor: 'bg-green-600',  texto: 'text-green-300'  },
 }
 
+const ACAO_CONFIG = {
+  COMPRA:       { label: 'Compra',      cor: 'bg-emerald-900/50 text-emerald-300 border-emerald-700' },
+  VENDA:        { label: 'Venda',       cor: 'bg-red-900/50 text-red-300 border-red-700' },
+  ATUALIZACAO:  { label: 'Atualização', cor: 'bg-blue-900/50 text-blue-300 border-blue-700' },
+}
+
 const CLASSE_COR = {
   ACAO:    'text-yellow-400',
   FII:     'text-orange-400',
@@ -36,6 +42,7 @@ function EditableRow({ r, onDelete, onUpdate }) {
   const [deleting, setDeleting] = useState(false)
 
   const cfg = TIPO_CONFIG[r.tipo]
+  const acaoCfg = r.tipo === 'posicao' ? ACAO_CONFIG[r.acao] : null
 
   const handleSave = async () => {
     const novo = parseFloat(valor)
@@ -70,10 +77,16 @@ function EditableRow({ r, onDelete, onUpdate }) {
   }
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 hover:bg-gray-800/50 transition-colors">
+    <div className="flex flex-col gap-1.5 px-4 py-3 hover:bg-gray-800/50 transition-colors">
+    <div className="flex items-center gap-3">
       <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold text-white ${cfg.cor}`}>
         {cfg.label}
       </span>
+      {acaoCfg && (
+        <span className={`shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold ${acaoCfg.cor}`}>
+          {acaoCfg.label}
+        </span>
+      )}
       <span className={`flex-1 font-medium ${CLASSE_COR[r.classe] ?? 'text-gray-200'}`}>
         {r.nome}
         {r.subtipo && <span className="ml-1 text-xs text-gray-500">({r.subtipo})</span>}
@@ -133,6 +146,15 @@ function EditableRow({ r, onDelete, onUpdate }) {
       >
         {deleting ? '…' : '✕'}
       </button>
+    </div>
+
+    {r.tipo === 'posicao' && (
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 pl-1 text-xs text-gray-500">
+        <span>Quantidade: <span className="text-gray-300">{r.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</span></span>
+        <span>Preço médio: <span className="text-gray-300">{fmt(r.preco_medio, 'posicao')}</span></span>
+        <span>Valor total: <span className="text-gray-300">{fmt(r.valor, 'posicao')}</span></span>
+      </div>
+    )}
     </div>
   )
 }
