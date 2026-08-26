@@ -40,8 +40,15 @@ class Indice(models.Model):
 
 
 class Posicao(models.Model):
+    TIPO_MOVIMENTO_CHOICES = [
+        ('COMPRA', 'Compra'),
+        ('VENDA', 'Venda'),
+        ('ATUALIZACAO', 'Atualização'),
+    ]
+
     data = models.DateField("Data", help_text="Data da posição")
     ativo = models.ForeignKey(Ativo, on_delete=models.PROTECT, help_text="Ativo referenciado")
+    tipo_movimento = models.CharField("Ação", max_length=20, choices=TIPO_MOVIMENTO_CHOICES, default='ATUALIZACAO', help_text="Última ação registrada para este ativo nesta data")
     valor_atual = models.DecimalField("Valor (R$)", max_digits=15, decimal_places=2, help_text="Quanto você tem em reais neste ativo")
     quantidade = models.DecimalField("Quantidade", max_digits=15, decimal_places=4, help_text="Quantidade de unidades do ativo")
     preco_medio_compra = models.DecimalField("Preço Médio (R$)", max_digits=15, decimal_places=4, help_text="Preço médio de aquisição do ativo")

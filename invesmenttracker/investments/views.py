@@ -90,35 +90,52 @@ class DividendoViewSet(viewsets.ModelViewSet):
 def registrar_posicao(request):
     """
     Registra uma Compra, Venda ou Atualização de posição.
-    Payload: { data, ativo_nome, ativo_classe, tipo, valor }
-    - ATUALIZACAO: salva o valor absoluto informado
-    - COMPRA:      último valor conhecido + valor informado
-    - VENDA:       último valor conhecido - valor informado
+    Payload: { data, ativo_nome, ativo_classe, tipo, valor, quantidade }
+    - ATUALIZACAO: salva o valor e a quantidade absolutos informados
+    - COMPRA:      soma valor/quantidade aos últimos conhecidos; recalcula preço médio
+    - VENDA:       subtrai valor/quantidade dos últimos conhecidos; preço médio não muda
     """
-    data       = request.data.get('data')
-    ativo_nome = (request.data.get('ativo_nome') or '').strip().upper()
+    data         = request.data.get('data')
+    ativo_nome   = (request.data.get('ativo_nome') or '').strip().upper()
     ativo_classe = _canonical_classe(request.data.get('ativo_classe', 'ACAO'))
-    tipo       = request.data.get('tipo', 'ATUALIZACAO')
-    valor      = float(request.data.get('valor', 0))
+    tipo         = request.data.get('tipo', 'ATUALIZACAO')
+    valor        = float(request.data.get('valor', 0))
+    quantidade   = float(request.data.get('quantidade', 0))
 
-    if not data or not ativo_nome or valor <= 0:
-        return Response({'success': False, 'error': 'Campos obrigatórios: data, ativo_nome, valor > 0'}, status=400)
+    if not data or not ativo_nome or valor <= 0 or quantidade <= 0:
+        return Response({'success': False, 'error': 'Campos obrigatórios: data, ativo_nome, valor > 0, quantidade > 0'}, status=400)
 
     ativo, _ = Ativo.objects.get_or_create(
         nome=ativo_nome,
         defaults={'classe_ativo': ativo_classe}
     )
 
-    if tipo in ('COMPRA', 'VENDA'):
-        ultima = Posicao.objects.filter(ativo=ativo).order_by('-data').first()
-        base = float(ultima.valor) if ultima else 0.0
-        novo_valor = base + valor if tipo == 'COMPRA' else max(base - valor, 0)
+    ultima = Posicao.objects.filter(ativo=ativo).order_by('-data').first()
+    base_valor = float(ultima.valor_atual) if ultima else 0.0
+    base_qtd = float(ultima.quantidade) if ultima else 0.0
+    base_preco_medio = float(ultima.preco_medio_compra) if ultima else 0.0
+
+    if tipo == 'COMPRA':
+        novo_valor = base_valor + valor
+        nova_qtd = base_qtd + quantidade
+        novo_preco_medio = (base_qtd * base_preco_medio + valor) / nova_qtd
+    elif tipo == 'VENDA':
+        novo_valor = max(base_valor - valor, 0)
+        nova_qtd = max(base_qtd - quantidade, 0)
+        novo_preco_medio = base_preco_medio if nova_qtd > 0 else 0.0
     else:
         novo_valor = valor
+        nova_qtd = quantidade
+        novo_preco_medio = base_preco_medio if ultima else valor / quantidade
 
     posicao, criado = Posicao.objects.update_or_create(
         data=data, ativo=ativo,
-        defaults={'valor': round(novo_valor, 2)}
+        defaults={
+            'tipo_movimento': tipo,
+            'valor_atual': round(novo_valor, 2),
+            'quantidade': round(nova_qtd, 4),
+            'preco_medio_compra': round(novo_preco_medio, 4),
+        }
     )
 
     return Response({
@@ -126,7 +143,9 @@ def registrar_posicao(request):
         'tipo': tipo,
         'ativo': ativo_nome,
         'data': str(posicao.data),
-        'valor_novo': float(posicao.valor),
+        'valor_novo': float(posicao.valor_atual),
+        'quantidade_nova': float(posicao.quantidade),
+        'preco_medio_novo': float(posicao.preco_medio_compra),
         'criado': criado,
     })
 
@@ -195,8 +214,8 @@ def rebalanceamento(request):
     total = 0.0
     for p in posicoes:
         classe = _canonical_classe(p.ativo.classe_ativo)
-        por_classe[classe] = por_classe.get(classe, 0.0) + float(p.valor)
-        total += float(p.valor)
+        por_classe[classe] = por_classe.get(classe, 0.0) + float(p.valor_atual)
+        total += float(p.valor_atual)
 
     # MetaPortfolio do banco sobrescreve defaults
     metas = dict(DEFAULTS)
@@ -231,7 +250,7 @@ def ultimos_registros(request):
 
     posicoes = list(
         Posicao.objects.select_related('ativo').order_by('-data', '-id')[:limit]
-        .values('id', 'data', 'valor', 'ativo__nome', 'ativo__classe_ativo')
+        .values('id', 'data', 'valor_atual', 'quantidade', 'preco_medio_compra', 'tipo_movimento', 'ativo__nome', 'ativo__classe_ativo')
     )
     indices = list(
         Indice.objects.order_by('-data', '-id')[:limit]
@@ -244,13 +263,18 @@ def ultimos_registros(request):
 
     registros = []
     for p in posicoes:
+        quantidade = float(p['quantidade'])
         registros.append({
             'tipo': 'posicao',
             'data': str(p['data']),
             'id': p['id'],
             'nome': p['ativo__nome'],
             'classe': p['ativo__classe_ativo'],
-            'valor': float(p['valor']),
+            'valor': float(p['valor_atual']),
+            'quantidade': quantidade,
+            'preco_medio': float(p['preco_medio_compra']),
+            'preco_atual': round(float(p['valor_atual']) / quantidade, 4) if quantidade > 0 else 0,
+            'acao': p['tipo_movimento'],
         })
     for i in indices:
         registros.append({
