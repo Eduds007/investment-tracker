@@ -42,8 +42,18 @@ class Indice(models.Model):
 class Posicao(models.Model):
     data = models.DateField("Data", help_text="Data da posição")
     ativo = models.ForeignKey(Ativo, on_delete=models.PROTECT, help_text="Ativo referenciado")
-    valor = models.DecimalField("Valor (R$)", max_digits=15, decimal_places=2, help_text="Quanto você tem em reais neste ativo")
-    
+    valor_atual = models.DecimalField("Valor (R$)", max_digits=15, decimal_places=2, help_text="Quanto você tem em reais neste ativo")
+    quantidade = models.DecimalField("Quantidade", max_digits=15, decimal_places=4, help_text="Quantidade de unidades do ativo")
+    preco_medio_compra = models.DecimalField("Preço Médio (R$)", max_digits=15, decimal_places=4, help_text="Preço médio de aquisição do ativo")
+    resultado_total = models.GeneratedField(
+        verbose_name="Resultado (R$)",
+        help_text="Ganho/perda de capital: quantidade × (valor atual - preço médio de compra)",
+        expression=models.F('quantidade') * (models.F('valor_atual') - models.F('preco_medio_compra')),
+        output_field=models.DecimalField(max_digits=18, decimal_places=2),
+        db_persist=True,
+    )
+
+
     class Meta:
         verbose_name = "Posição"
         verbose_name_plural = "Posições"
@@ -51,7 +61,7 @@ class Posicao(models.Model):
         unique_together = ('data', 'ativo')  # Garante que não há duplicatas
     
     def __str__(self):
-        return f"{self.data.strftime('%d/%m/%Y')} - {self.ativo.nome} ({self.ativo.get_classe_ativo_display()}): R$ {self.valor}"
+        return f"{self.data.strftime('%d/%m/%Y')} - {self.ativo.nome} ({self.ativo.get_classe_ativo_display()}): R$ {self.valor_atual}"
 
 
 class MetaPortfolio(models.Model):
