@@ -11,6 +11,13 @@ export default function DashboardSummary({ refreshKey = 0 }) {
   const [mediaDividendos12m, setMediaDividendos12m] = useState(0)
   const [metaDividendos, setMetaDividendos] = useState(0)
   const [percentualDividendos, setPercentualDividendos] = useState(0)
+
+
+  const [mediaAportes, setMediaAportes] = useState(0)
+  const [mediaAportes12m, setMediaAportes12m] = useState(0)
+  const [metaAportes, setMetaAportes] = useState(0)
+  const [percentualAportes, setPercentualAportes] = useState(0)
+
   
   const [loading, setLoading] = useState(true)
 
@@ -76,7 +83,7 @@ export default function DashboardSummary({ refreshKey = 0 }) {
       const inicioJanelaAtual = new Date(hoje.getFullYear(), hoje.getMonth() - 11, 1)
       const inicioJanelaAnterior = new Date(hoje.getFullYear(), hoje.getMonth() - 23, 1)
 
-      const calcularMediaJanela12m = (dataInicio, dataFim) => {
+      const calcularMediaJanela12m = (lista, dataInicio, dataFim, getValor) => {
         const totaisMensais = {}
 
         for (let i = 0; i < 12; i += 1) {
@@ -85,12 +92,12 @@ export default function DashboardSummary({ refreshKey = 0 }) {
           totaisMensais[chave] = 0
         }
 
-        dividendos.forEach((div) => {
-          const divData = new Date(div.data)
-          if (divData >= dataInicio && divData < dataFim) {
-            const chave = `${divData.getFullYear()}-${String(divData.getMonth() + 1).padStart(2, '0')}`
+        lista.forEach((item) => {
+          const itemData = new Date(item.data)
+          if (itemData >= dataInicio && itemData < dataFim) {
+            const chave = `${itemData.getFullYear()}-${String(itemData.getMonth() + 1).padStart(2, '0')}`
             if (chave in totaisMensais) {
-              totaisMensais[chave] += Number(div.valor)
+              totaisMensais[chave] += getValor(item)
             }
           }
         })
@@ -98,13 +105,40 @@ export default function DashboardSummary({ refreshKey = 0 }) {
         return Object.values(totaisMensais).reduce((sum, valor) => sum + valor, 0) / 12
       }
 
-      const mediaDivs12mAtual = calcularMediaJanela12m(inicioJanelaAtual, inicioProximoMes)
-      const mediaDivs12mAnterior = calcularMediaJanela12m(inicioJanelaAnterior, inicioMesAtual)
+      const getValorDividendo = (div) => Number(div.valor)
+
+      const mediaDivs12mAtual = calcularMediaJanela12m(dividendos, inicioJanelaAtual, inicioProximoMes, getValorDividendo)
+      const mediaDivs12mAnterior = calcularMediaJanela12m(dividendos, inicioJanelaAnterior, inicioMesAtual, getValorDividendo)
+
+      // Aportes/Saques: registrados como Posições de um Ativo pseudo chamado 'APORTE' ou 'SAQUE'.
+      // O valor de cada posição é cumulativo (Registrar Movimentação soma/subtrai do último valor
+      // conhecido), então o aporte/saque do período é a diferença em relação ao registro anterior.
+      const deltasPorPeriodo = (nomeAtivo, sinal) => {
+        const registros = posicoes
+          .filter((p) => (p.ativo || '').toString().trim().toUpperCase() === nomeAtivo)
+          .sort((a, b) => new Date(a.data) - new Date(b.data))
+
+        let anterior = 0
+        return registros.map((p) => {
+          const valorAtual = Number(p.valor)
+          const delta = valorAtual - anterior
+          anterior = valorAtual
+          return { data: p.data, valor: sinal * delta }
+        })
+      }
+
+      const eventosAporte = [...deltasPorPeriodo('APORTE', 1), ...deltasPorPeriodo('SAQUE', -1)]
+      const getValorEvento = (e) => e.valor
+
+      const mediaAportes12mAtual = calcularMediaJanela12m(eventosAporte, inicioJanelaAtual, inicioProximoMes, getValorEvento)
+      const mediaAportes12mAnterior = calcularMediaJanela12m(eventosAporte, inicioJanelaAnterior, inicioMesAtual, getValorEvento)
 
       setTotalPatrimonio(totalAtivos)
       setPatrimonioAnterior30d(totalAtivos30d)
       setMediaDividendos(mediaDivs12mAtual)
       setMediaDividendos12m(mediaDivs12mAnterior)
+      setMediaAportes(mediaAportes12mAtual)
+      setMediaAportes12m(mediaAportes12mAnterior)
       setLoading(false)
     }).catch(() => {
       setLoading(false)
@@ -115,16 +149,20 @@ export default function DashboardSummary({ refreshKey = 0 }) {
     // Buscar metas do localStorage
     const metaPat = parseFloat(localStorage.getItem('metaPatrimonio') || '100000')
     const metaDiv = parseFloat(localStorage.getItem('metaDividendos') || '1000')
-    
+    const metaApo = parseFloat(localStorage.getItem('metaAportes') || '1000')
+
     setMetaPatrimonio(metaPat)
     setMetaDividendos(metaDiv)
+    setMetaAportes(metaApo)
 
     const percPat = metaPat > 0 ? (totalPatrimonio / metaPat) * 100 : 0
     const percDiv = metaDiv > 0 ? (mediaDividendos / metaDiv) * 100 : 0
+    const percApo = metaApo > 0 ? (mediaAportes / metaApo) * 100 : 0
 
     setPercentualPatrimonio(percPat)
     setPercentualDividendos(percDiv)
-  }, [totalPatrimonio, mediaDividendos])
+    setPercentualAportes(percApo)
+  }, [totalPatrimonio, mediaDividendos, mediaAportes])
 
   const formatarMoeda = (valor) => {
     return valor.toLocaleString('pt-BR', {
@@ -148,6 +186,7 @@ export default function DashboardSummary({ refreshKey = 0 }) {
 
   const variacaoPatrimonio = calcularVariacao(totalPatrimonio, patrimonioAnterior30d)
   const variacaoDividendos = calcularVariacao(mediaDividendos, mediaDividendos12m)
+  const variacaoAportes = calcularVariacao(mediaAportes, mediaAportes12m)
 
   const getVariacaoColor = (valor) => {
     if (valor >= 0) return 'text-green-400'
@@ -203,6 +242,29 @@ export default function DashboardSummary({ refreshKey = 0 }) {
             <div
               className="h-full bg-emerald-500 transition-all"
               style={{ width: `${Math.min(percentualDividendos, 100)}%` }}
+            />
+          </div>
+        </div>
+                <div className="rounded-lg border border-gray-800 bg-black p-6">
+          <div className="mb-4">
+            <h3 className="mb-1 text-sm font-semibold text-emerald-300">Aportes Mensais (Média 12m)</h3>
+            <div className="space-y-1">
+              <p className="text-3xl font-bold text-white">{formatarMoeda(mediaAportes)}</p>
+              <p className={`text-sm ${getVariacaoColor(variacaoAportes.absoluta)}`}>
+                (+{formatarMoeda(variacaoAportes.absoluta)} | +{variacaoAportes.relativa.toFixed(2)}%)
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-400">Meta: {formatarMoeda(metaAportes)}</span>
+            <span className={`font-semibold ${getStatusColor(percentualAportes)}`}>
+              {percentualAportes.toFixed(1)}%
+            </span>
+          </div>
+          <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-800">
+            <div
+              className="h-full bg-emerald-500 transition-all"
+              style={{ width: `${Math.min(percentualAportes, 100)}%` }}
             />
           </div>
         </div>

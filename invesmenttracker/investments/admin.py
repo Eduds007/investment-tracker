@@ -33,16 +33,17 @@ class AtivoAdmin(admin.ModelAdmin):
 
 @admin.register(Posicao)
 class PosicaoAdmin(admin.ModelAdmin):
-    list_display = ('data', 'ativo', 'valor')
+    list_display = ('data', 'ativo', 'valor_atual', 'quantidade', 'preco_medio_compra', 'resultado_total')
     list_filter = ('ativo__classe_ativo', 'data')
     search_fields = ('ativo__nome',)
     date_hierarchy = 'data'
     ordering = ('-data', 'ativo')
-    list_editable = ('valor',)
-    
+    list_editable = ('valor_atual',)
+    readonly_fields = ('resultado_total',)
+
     fieldsets = (
         ('Informações da Posição', {
-            'fields': ('data', 'ativo', 'valor')
+            'fields': ('data', 'ativo', 'valor_atual', 'quantidade', 'preco_medio_compra', 'resultado_total')
         }),
     )
 

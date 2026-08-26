@@ -7,7 +7,6 @@ import DividendosPage from './DividendosPage'
 import EvolucaoPatrimonialPage from './EvolucaoPatrimonialPage'
 import RecomendadoresPage from './RecomendadoresPage'
 import UltimosRegistrosPage from './UltimosRegistrosPage'
-import MilionarioPage from './MilionarioPage'
 import SettingsModal from './SettingsModal'
 import RegistrarPosicaoModal from './RegistrarPosicaoModal'
 
@@ -36,7 +35,6 @@ export default function App() {
             <Link to="/patrimonio"    className={navClass('/patrimonio')}>Patrimônio</Link>
             <Link to="/recomendadores" className={navClass('/recomendadores')}>Recomendações</Link>
             <Link to="/registros"     className={navClass('/registros')}>Registros</Link>
-            <Link to="/milionario"    className={navClass('/milionario')}>Milionário</Link>
           </div>
         </div>
 
@@ -72,7 +70,6 @@ export default function App() {
         <Route path="/patrimonio"    element={<EvolucaoPatrimonialPage refreshKey={refreshKey} />} />
         <Route path="/recomendadores" element={<RecomendadoresPage refreshKey={refreshKey} />} />
         <Route path="/registros"      element={<UltimosRegistrosPage refreshKey={refreshKey} />} />
-        <Route path="/milionario"     element={<MilionarioPage refreshKey={refreshKey} />} />
       </Routes>
 
       <SettingsModal

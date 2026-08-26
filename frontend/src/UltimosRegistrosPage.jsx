@@ -7,10 +7,10 @@ const TIPO_CONFIG = {
   dividendo:{ label: 'Dividendo', cor: 'bg-green-600',  texto: 'text-green-300'  },
 }
 
-const MOVIMENTACAO_CONFIG = {
-  COMPRA:      { label: 'Compra',      cor: 'bg-emerald-600' },
-  VENDA:       { label: 'Venda',       cor: 'bg-red-600'     },
-  ATUALIZACAO: { label: 'Atualização', cor: 'bg-blue-600'    },
+const ACAO_CONFIG = {
+  COMPRA:       { label: 'Compra',      cor: 'bg-emerald-900/50 text-emerald-300 border-emerald-700' },
+  VENDA:        { label: 'Venda',       cor: 'bg-red-900/50 text-red-300 border-red-700' },
+  ATUALIZACAO:  { label: 'Atualização', cor: 'bg-blue-900/50 text-blue-300 border-blue-700' },
 }
 
 const CLASSE_COR = {
@@ -29,10 +29,6 @@ function fmt(valor, tipo) {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-function fmtMoeda(valor) {
-  return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 4 })
-}
-
 const ENDPOINT = {
   posicao:   (id) => `http://localhost:8000/api/posicoes/${id}/`,
   indice:    (id) => `http://localhost:8000/api/indices/${id}/`,
@@ -40,57 +36,24 @@ const ENDPOINT = {
 }
 
 function EditableRow({ r, onDelete, onUpdate }) {
-  const isPosicao = r.tipo === 'posicao'
-
-  const [editing, setEditing]           = useState(false)
-  const [valor, setValor]               = useState(String(r.valor))
-  const [ativoNome, setAtivoNome]       = useState(r.nome)
-  const [quantidade, setQuantidade]     = useState(r.quantidade != null ? String(r.quantidade) : '')
-  const [precoUnitario, setPrecoUnitario] = useState(r.preco_unitario != null ? String(r.preco_unitario) : '')
+  const [editing, setEditing] = useState(false)
+  const [valor, setValor]     = useState(String(r.valor))
   const [saving, setSaving]     = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [erro, setErro]         = useState(null)
 
-  const movCfg = isPosicao ? MOVIMENTACAO_CONFIG[r.tipo_movimentacao] : null
-  const cfg = movCfg ?? TIPO_CONFIG[r.tipo]
-
-  const startEdit = () => {
-    setValor(String(r.valor))
-    setAtivoNome(r.nome)
-    setQuantidade(r.quantidade != null ? String(r.quantidade) : '')
-    setPrecoUnitario(r.preco_unitario != null ? String(r.preco_unitario) : '')
-    setErro(null)
-    setEditing(true)
-  }
+  const cfg = TIPO_CONFIG[r.tipo]
+  const acaoCfg = r.tipo === 'posicao' ? ACAO_CONFIG[r.acao] : null
 
   const handleSave = async () => {
     const novo = parseFloat(valor)
     if (!novo || novo <= 0) return
-    if (isPosicao && !ativoNome.trim()) return
     setSaving(true)
-    setErro(null)
     try {
-      const payload = { valor: novo }
-      if (isPosicao) {
-        payload.ativo_nome = ativoNome.trim().toUpperCase()
-        payload.quantidade = quantidade !== '' ? parseFloat(quantidade) : null
-        payload.preco_unitario = precoUnitario !== '' ? parseFloat(precoUnitario) : null
-      }
-      const res = await axios.patch(ENDPOINT[r.tipo](r.id), payload)
-      const atualizado = isPosicao
-        ? {
-            valor: Number(res.data.valor),
-            nome: res.data.ativo,
-            classe: res.data.classe_ativo,
-            quantidade: res.data.quantidade != null ? Number(res.data.quantidade) : null,
-            preco_unitario: res.data.preco_unitario != null ? Number(res.data.preco_unitario) : null,
-            preco_medio: res.data.preco_medio != null ? Number(res.data.preco_medio) : null,
-          }
-        : { valor: Number(res.data.valor) }
-      onUpdate(r, atualizado)
+      await axios.patch(ENDPOINT[r.tipo](r.id), { valor: novo })
+      onUpdate(r, novo)
       setEditing(false)
-    } catch (err) {
-      setErro(err.response?.data?.ativo_nome || err.response?.data?.error || 'Erro ao salvar.')
+    } catch {
+      alert('Erro ao salvar.')
     } finally {
       setSaving(false)
     }
@@ -110,124 +73,48 @@ function EditableRow({ r, onDelete, onUpdate }) {
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') handleSave()
-    if (e.key === 'Escape') setEditing(false)
+    if (e.key === 'Escape') { setValor(String(r.valor)); setEditing(false) }
   }
 
-  const inputClass = "rounded border border-blue-500 bg-gray-800 px-2 py-0.5 text-right font-mono text-sm text-white focus:outline-none"
-
   return (
-    <div className="flex flex-col gap-1 px-4 py-3 hover:bg-gray-800/50 transition-colors">
-      <div className="flex items-center gap-3">
-        <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold text-white ${cfg.cor}`}>
-          {cfg.label}
+    <div className="flex flex-col gap-1.5 px-4 py-3 hover:bg-gray-800/50 transition-colors">
+    <div className="flex items-center gap-3">
+      <span className={`shrink-0 rounded-md px-2 py-0.5 text-xs font-semibold text-white ${cfg.cor}`}>
+        {cfg.label}
+      </span>
+      {acaoCfg && (
+        <span className={`shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold ${acaoCfg.cor}`}>
+          {acaoCfg.label}
         </span>
+      )}
+      <span className={`flex-1 font-medium ${CLASSE_COR[r.classe] ?? 'text-gray-200'}`}>
+        {r.nome}
+        {r.subtipo && <span className="ml-1 text-xs text-gray-500">({r.subtipo})</span>}
+      </span>
+      {r.classe && r.classe !== 'INDICE' && r.classe !== 'DIVIDENDO' && (
+        <span className="text-xs text-gray-500 shrink-0">{r.classe}</span>
+      )}
 
-        {editing && isPosicao ? (
-          <input
-            type="text"
-            value={ativoNome}
-            onChange={e => setAtivoNome(e.target.value)}
-            placeholder="Ticker"
-            className="w-28 rounded border border-blue-500 bg-gray-800 px-2 py-0.5 text-sm text-white focus:outline-none"
-          />
-        ) : (
-          <span className="flex-1 min-w-0">
-            <span className={`font-medium ${CLASSE_COR[r.classe] ?? 'text-gray-200'}`}>
-              {r.nome}
-              {r.subtipo && <span className="ml-1 text-xs text-gray-500">({r.subtipo})</span>}
-            </span>
-            {isPosicao && r.quantidade != null && (
-              <span className="block text-xs text-gray-500">
-                Qtd: {Number(r.quantidade).toLocaleString('pt-BR', { maximumFractionDigits: 8 })}
-                {r.preco_unitario != null && <> · Preço: {fmtMoeda(r.preco_unitario)}</>}
-                {r.preco_medio != null && <> · Preço médio: {fmtMoeda(r.preco_medio)}</>}
-              </span>
-            )}
-          </span>
-        )}
 
-        {!editing && r.classe && r.classe !== 'INDICE' && r.classe !== 'DIVIDENDO' && (
-          <span className="text-xs text-gray-500 shrink-0">{r.classe}</span>
-        )}
 
-        {editing ? (
-          <div className="flex flex-1 flex-wrap items-center justify-end gap-1">
-            {isPosicao && (
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={quantidade}
-                onChange={e => setQuantidade(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Qtd"
-                className={`w-20 ${inputClass}`}
-              />
-            )}
-            {isPosicao && (
-              <input
-                type="number"
-                min="0"
-                step="0.0001"
-                value={precoUnitario}
-                onChange={e => setPrecoUnitario(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Preço"
-                className={`w-24 ${inputClass}`}
-              />
-            )}
-            <input
-              autoFocus={!isPosicao}
-              type="number"
-              min="0.0001"
-              step="0.01"
-              value={valor}
-              onChange={e => setValor(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Valor"
-              className={`w-28 ${inputClass}`}
-            />
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving}
-              className="rounded px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40"
-            >
-              {saving ? '…' : '✓'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setEditing(false)}
-              className="rounded px-2 py-0.5 text-xs text-gray-400 hover:text-white"
-            >
-              ✕
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="font-mono text-sm text-white">{fmt(r.valor, r.tipo)}</span>
-            <button
-              type="button"
-              onClick={startEdit}
-              className="rounded p-1 text-gray-500 hover:text-blue-400 hover:bg-blue-900/20 transition-colors"
-              title="Editar"
-            >
-              ✎
-            </button>
-          </div>
-        )}
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={deleting}
+        className="shrink-0 rounded p-1 text-gray-600 hover:text-red-400 hover:bg-red-900/20 transition-colors disabled:opacity-40"
+        title="Deletar"
+      >
+        {deleting ? '…' : '✕'}
+      </button>
+    </div>
 
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleting}
-          className="shrink-0 rounded p-1 text-gray-600 hover:text-red-400 hover:bg-red-900/20 transition-colors disabled:opacity-40"
-          title="Deletar"
-        >
-          {deleting ? '…' : '✕'}
-        </button>
+    {r.tipo === 'posicao' && (
+      <div className="flex flex-wrap gap-x-4 gap-y-0.5 pl-1 text-xs text-gray-500">
+        <span>Quantidade: <span className="text-gray-300">{r.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 4 })}</span></span>
+        <span>Preço médio: <span className="text-gray-300">{fmt(r.preco_medio, 'posicao')}</span></span>
+        <span>Valor total: <span className="text-gray-300">{fmt(r.valor, 'posicao')}</span></span>
       </div>
-      {erro && <p className="text-xs text-red-400">{erro}</p>}
+    )}
     </div>
   )
 }
@@ -251,9 +138,9 @@ export default function UltimosRegistrosPage({ refreshKey }) {
   const handleDelete = (r) =>
     setRegistros(prev => prev.filter(x => !(x.tipo === r.tipo && x.id === r.id)))
 
-  const handleUpdate = (r, patch) =>
+  const handleUpdate = (r, novoValor) =>
     setRegistros(prev => prev.map(x =>
-      x.tipo === r.tipo && x.id === r.id ? { ...x, ...patch } : x
+      x.tipo === r.tipo && x.id === r.id ? { ...x, valor: novoValor } : x
     ))
 
   const filtrados = registros.filter(r => {

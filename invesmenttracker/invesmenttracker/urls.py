@@ -17,5 +17,4 @@ urlpatterns = [
     path('api/registrar-posicao/', views.registrar_posicao, name='registrar-posicao'),
     path('api/atualizar-indices/', views.atualizar_indices, name='atualizar-indices'),
     path('api/ultimos-registros/', views.ultimos_registros, name='ultimos-registros'),
-    path('api/yield-preco-medio/', views.yield_preco_medio, name='yield-preco-medio'),
 ]
