@@ -1,11 +1,12 @@
 from rest_framework import viewsets
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from decimal import Decimal, InvalidOperation
 import re
 import unicodedata
 from .models import Ativo, Indice, Posicao, Dividendo, MetaPortfolio
 from .serializers import AtivoSerializer, IndiceSerializer, PosicaoSerializer, DividendoSerializer
-from .recomendador import sugerir_alocacao
+from .recomendador import sugerir_alocacao, avaliar_carteira_preco_medio
 
 
 CANONICAL_LABELS = {
@@ -90,16 +91,33 @@ class DividendoViewSet(viewsets.ModelViewSet):
 def registrar_posicao(request):
     """
     Registra uma Compra, Venda ou Atualização de posição.
-    Payload: { data, ativo_nome, ativo_classe, tipo, valor }
+    Payload: { data, ativo_nome, ativo_classe, tipo, valor, quantidade?, preco_unitario? }
     - ATUALIZACAO: salva o valor absoluto informado
     - COMPRA:      último valor conhecido + valor informado
     - VENDA:       último valor conhecido - valor informado
+
+    Quando quantidade e preco_unitario são informados numa COMPRA, o preço
+    médio do ativo (Ativo.preco_medio) é recalculado como média ponderada
+    pela quantidade. Numa VENDA, quantidade informada apenas reduz o total
+    em carteira — o preço médio não muda (zera se a posição for zerada).
     """
     data       = request.data.get('data')
     ativo_nome = (request.data.get('ativo_nome') or '').strip().upper()
     ativo_classe = _canonical_classe(request.data.get('ativo_classe', 'ACAO'))
     tipo       = request.data.get('tipo', 'ATUALIZACAO')
     valor      = float(request.data.get('valor', 0))
+
+    def _to_decimal(campo):
+        bruto = request.data.get(campo)
+        if bruto in (None, ''):
+            return None
+        try:
+            return Decimal(str(bruto))
+        except InvalidOperation:
+            return None
+
+    quantidade = _to_decimal('quantidade')
+    preco_unitario = _to_decimal('preco_unitario')
 
     if not data or not ativo_nome or valor <= 0:
         return Response({'success': False, 'error': 'Campos obrigatórios: data, ativo_nome, valor > 0'}, status=400)
@@ -116,6 +134,20 @@ def registrar_posicao(request):
     else:
         novo_valor = valor
 
+    if tipo == 'COMPRA' and quantidade and quantidade > 0 and preco_unitario and preco_unitario > 0:
+        qtd_atual = ativo.quantidade or Decimal('0')
+        pm_atual = ativo.preco_medio or Decimal('0')
+        nova_qtd = qtd_atual + quantidade
+        ativo.preco_medio = ((qtd_atual * pm_atual) + (quantidade * preco_unitario)) / nova_qtd
+        ativo.quantidade = nova_qtd
+        ativo.save()
+    elif tipo == 'VENDA' and quantidade and quantidade > 0:
+        nova_qtd = max((ativo.quantidade or Decimal('0')) - quantidade, Decimal('0'))
+        ativo.quantidade = nova_qtd
+        if nova_qtd == 0:
+            ativo.preco_medio = None
+        ativo.save()
+
     posicao, criado = Posicao.objects.update_or_create(
         data=data, ativo=ativo,
         defaults={'valor': round(novo_valor, 2)}
@@ -128,6 +160,8 @@ def registrar_posicao(request):
         'data': str(posicao.data),
         'valor_novo': float(posicao.valor),
         'criado': criado,
+        'quantidade_total': float(ativo.quantidade),
+        'preco_medio': float(ativo.preco_medio) if ativo.preco_medio is not None else None,
     })
 
 
@@ -282,5 +316,19 @@ def sugestao_aporte(request):
         valor = float(request.query_params.get('valor', 100))
         resultado = sugerir_alocacao(valor)
         return Response({'success': True, **resultado})
+    except Exception as e:
+        return Response({'success': False, 'error': str(e)}, status=500)
+
+
+@api_view(['GET'])
+def yield_preco_medio(request):
+    """
+    Para cada ativo em carteira com preço médio conhecido, calcula o
+    'yield garantido' = dividendo médio anual (últimos 5 anos) / preço médio pago.
+    Acima de 6% -> MANTER, abaixo -> VENDER.
+    """
+    try:
+        resultado = avaliar_carteira_preco_medio()
+        return Response({'success': True, 'ativos': resultado})
     except Exception as e:
         return Response({'success': False, 'error': str(e)}, status=500)

@@ -10,11 +10,22 @@ export default function RecomendadoresPage({ refreshKey = 0 }) {
   const [rebalanceamento, setRebalanceamento] = useState(null)
   const [loadingReb, setLoadingReb] = useState(true)
 
+  const [yieldPrecoMedio, setYieldPrecoMedio] = useState(null)
+  const [loadingYield, setLoadingYield] = useState(true)
+
   useEffect(() => {
     axios.get('http://localhost:8000/api/rebalanceamento/')
       .then(res => res.data.success && setRebalanceamento(res.data))
       .catch(() => {})
       .finally(() => setLoadingReb(false))
+  }, [refreshKey])
+
+  useEffect(() => {
+    setLoadingYield(true)
+    axios.get('http://localhost:8000/api/yield-preco-medio/')
+      .then(res => res.data.success && setYieldPrecoMedio(res.data.ativos))
+      .catch(() => {})
+      .finally(() => setLoadingYield(false))
   }, [refreshKey])
 
   const calcularSugestao = async () => {
@@ -161,6 +172,71 @@ export default function RecomendadoresPage({ refreshKey = 0 }) {
           <p className="text-xs text-gray-600">★ = ativo já presente na carteira</p>
         </div>
       )}
+
+      {/* Preço Médio x Yield Garantido */}
+      <div className="rounded-lg border border-gray-700 bg-gray-900 p-6 space-y-4">
+        <div>
+          <h2 className="text-xl font-bold text-white">Preço Médio × Yield Garantido</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Dividendo médio anual (últimos 5 anos) ÷ preço médio pago. Acima de 6% o preço pago ainda se paga em dividendos.
+          </p>
+        </div>
+
+        {loadingYield && <p className="text-sm text-gray-500">Carregando posições...</p>}
+
+        {!loadingYield && (!yieldPrecoMedio || yieldPrecoMedio.length === 0) && (
+          <p className="text-sm text-gray-500">
+            Nenhum ativo com preço médio calculado ainda. Registre compras com quantidade e preço por unidade para começar a acompanhar.
+          </p>
+        )}
+
+        {!loadingYield && yieldPrecoMedio && yieldPrecoMedio.length > 0 && (
+          <div className="overflow-x-auto rounded-lg border border-gray-700">
+            <table className="min-w-full divide-y divide-gray-700 text-sm">
+              <thead className="bg-gray-800 text-gray-400">
+                <tr>
+                  <th className="px-4 py-2 text-left">Ativo</th>
+                  <th className="px-4 py-2 text-right">Quantidade</th>
+                  <th className="px-4 py-2 text-right">Preço Médio</th>
+                  <th className="px-4 py-2 text-right">Dividendo Médio Anual</th>
+                  <th className="px-4 py-2 text-right">Yield Garantido</th>
+                  <th className="px-4 py-2 text-center">Recomendação</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800 bg-gray-900">
+                {yieldPrecoMedio.map((item) => (
+                  <tr key={item.ticker} className="hover:bg-gray-800/50">
+                    <td className="px-4 py-2 font-bold text-white">{item.ticker}</td>
+                    <td className="px-4 py-2 text-right text-gray-300">
+                      {item.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 8 })}
+                    </td>
+                    <td className="px-4 py-2 text-right text-gray-300">
+                      {item.preco_medio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </td>
+                    <td className="px-4 py-2 text-right text-gray-300">
+                      {item.dividendo_medio_anual.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    </td>
+                    <td className={`px-4 py-2 text-right font-medium ${item.yield_garantido > 6 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {item.recomendacao === 'SEM_HISTORICO' ? '—' : `${item.yield_garantido.toFixed(2)}%`}
+                    </td>
+                    <td className="px-4 py-2 text-center">
+                      {item.recomendacao === 'MANTER' && (
+                        <span className="rounded-full bg-emerald-900/60 px-2 py-0.5 text-xs font-semibold text-emerald-300">MANTER</span>
+                      )}
+                      {item.recomendacao === 'VENDA' && (
+                        <span className="rounded-full bg-red-900/60 px-2 py-0.5 text-xs font-semibold text-red-300">VENDA</span>
+                      )}
+                      {item.recomendacao === 'SEM_HISTORICO' && (
+                        <span className="text-xs text-gray-600">sem histórico</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* Rebalanceamento por Setor */}
       <div className="rounded-lg border border-gray-700 bg-gray-900 p-6 space-y-4">

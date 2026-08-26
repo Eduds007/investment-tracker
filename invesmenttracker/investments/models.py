@@ -14,7 +14,9 @@ class Ativo(models.Model):
     
     nome = models.CharField("Nome/Código", max_length=100, unique=True, help_text="Ex: BBAS3, BOVA11, BTC, CDB, TESOURO")
     classe_ativo = models.CharField("Classe de Ativo", max_length=20, choices=CLASSE_CHOICES, help_text="Categoria do ativo")
-    
+    quantidade = models.DecimalField("Quantidade", max_digits=18, decimal_places=8, default=Decimal('0'), help_text="Quantidade de cotas/ações atualmente em carteira")
+    preco_medio = models.DecimalField("Preço Médio (R$)", max_digits=15, decimal_places=4, null=True, blank=True, help_text="Preço médio de compra por unidade, calculado automaticamente a partir das compras")
+
     class Meta:
         verbose_name = "Ativo"
         verbose_name_plural = "Ativos"

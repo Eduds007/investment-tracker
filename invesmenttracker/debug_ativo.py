@@ -41,10 +41,9 @@ preco_atual = historico.iloc[-1]['Close']
 print(f'  Preço atual:        R$ {preco_atual:.2f}')
 print(f'  Total dividendos pagos no período: R$ {historico["Dividends"].sum():.4f}')
 
-# ── 2. Calcular yield por evento ──────────────────────────────────────────────
-header('2. YIELD POR EVENTO DE DIVIDENDO (Dividendo / Preço Atual)')
-historico['yield'] = historico['Dividends'] / preco_atual
-historico_div = historico[historico['yield'] != 0].copy()
+# ── 2. Eventos de dividendo ────────────────────────────────────────────────────
+header('2. EVENTOS DE DIVIDENDO (valor absoluto pago, R$)')
+historico_div = historico[historico['Dividends'] != 0].copy()
 
 if historico_div.empty:
     print('  AVISO: Nenhum dividendo encontrado no histórico.')
@@ -52,52 +51,51 @@ else:
     print(f'  Eventos de dividendo encontrados: {len(historico_div)}')
     print()
     for data, row in historico_div.iterrows():
-        print(f'  {data.date()}  |  Dividendo: R$ {row["Dividends"]:.4f}  |  '
-              f'Yield s/ preço atual (R${preco_atual:.2f}): {row["yield"]*100:.4f}%')
+        print(f'  {data.date()}  |  Dividendo: R$ {row["Dividends"]:.4f}')
 
 # ── 3. Últimos 12 meses ───────────────────────────────────────────────────────
 header('3. ÚLTIMOS 12 MESES')
 historico_12m = historico[historico.index >= doze_meses_str]
-yield_12m = historico_12m['yield'].sum()
 dividends_12m = historico_12m['Dividends'].sum()
 
 print(f'  Registros nos últimos 12 meses: {len(historico_12m)}')
 print(f'  Dividendos pagos (R$):          {dividends_12m:.4f}')
-print(f'  Yield acumulado 12m:            {yield_12m*100:.4f}%')
 
 # ── 4. Agrupamento anual ──────────────────────────────────────────────────────
-header('4. YIELD AGRUPADO POR ANO')
-agrupado = historico_div.groupby(historico_div.index.year).sum()
+header('4. DIVIDENDOS (R$) AGRUPADOS POR ANO')
+dividendos_por_ano = historico_div.groupby(historico_div.index.year)['Dividends'].sum()
 
-print('  (Ano atual substituído pelo yield dos últimos 12 meses)')
+print('  (Ano atual substituído pela soma dos últimos 12 meses)')
 print()
 
-try:
-    if agrupado.index[-1] == hoje.year:
-        valor_antes = agrupado.iloc[-1]['yield']
-        agrupado.iloc[-1, agrupado.columns.get_loc('yield')] = yield_12m
-        print(f'  ⚠ Ano {hoje.year}: yield original {valor_antes*100:.4f}% '
-              f'→ substituído por {yield_12m*100:.4f}% (últimos 12 meses)')
-        print()
-except Exception:
-    pass
+if len(dividendos_por_ano) > 0 and dividendos_por_ano.index[-1] == hoje.year:
+    valor_antes = dividendos_por_ano.iloc[-1]
+    dividendos_por_ano.iloc[-1] = dividends_12m
+    print(f'  ⚠ Ano {hoje.year}: R$ {valor_antes:.4f} → substituído por R$ {dividends_12m:.4f} (últimos 12 meses)')
+    print()
 
-for ano, row in agrupado.iterrows():
-    print(f'  {ano}  |  Dividendos: R$ {row["Dividends"]:.4f}  |  Yield: {row["yield"]*100:.4f}%')
+dividendos_por_ano = dividendos_por_ano.tail(5)
 
-anos_historico = len(agrupado)
-print(f'\n  Total de anos com dividendos: {anos_historico}  (mínimo exigido: 5)')
+for ano, valor in dividendos_por_ano.items():
+    print(f'  {ano}  |  Dividendos: R$ {valor:.4f}')
+
+anos_historico = len(dividendos_por_ano)
+print(f'\n  Períodos anuais considerados (últimos 5): {anos_historico}  (mínimo exigido: 5)')
 
 # ── 5. Estatísticas ───────────────────────────────────────────────────────────
 header('5. ESTATÍSTICAS DE YIELD')
-media = agrupado['yield'].mean()
-desv  = agrupado['yield'].std()
+media_dividendos = dividendos_por_ano.mean()
+desv_dividendos = dividendos_por_ano.std()
+media = media_dividendos / preco_atual if preco_atual > 0 else 0
+desv = desv_dividendos / preco_atual if preco_atual > 0 else 0
 menos_dp = media - desv
 
-print(f'  Yield médio (dyield):      {media*100:.4f}%')
-print(f'  Desvio padrão (dp):        {desv*100:.4f}%')
-print(f'  Yield - 1dp (minus_dp):    {menos_dp*100:.4f}%')
-print(f'  Critério mínimo:           6.00%')
+print(f'  Média dividendos 5 anos (R$):  {media_dividendos:.4f}')
+print(f'  Desvio padrão (R$):            {desv_dividendos:.4f}')
+print(f'  Yield médio (dyield = média / preço):    {media*100:.4f}%')
+print(f'  Desvio padrão (dp = desvio / preço):     {desv*100:.4f}%')
+print(f'  Yield - 1dp (minus_dp):        {menos_dp*100:.4f}%')
+print(f'  Critério mínimo:               6.00%')
 print(f'  dyield >= 6%?   {"✓ SIM" if media >= 0.06 else "✗ NÃO"}')
 print(f'  minus_dp >= 6%? {"✓ SIM" if menos_dp >= 0.06 else "✗ NÃO"}')
 
