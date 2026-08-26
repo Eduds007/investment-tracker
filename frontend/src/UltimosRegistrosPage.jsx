@@ -95,47 +95,7 @@ function EditableRow({ r, onDelete, onUpdate }) {
         <span className="text-xs text-gray-500 shrink-0">{r.classe}</span>
       )}
 
-      {editing ? (
-        <div className="flex items-center gap-1 shrink-0">
-          <input
-            autoFocus
-            type="number"
-            min="0.0001"
-            step="0.01"
-            value={valor}
-            onChange={e => setValor(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="w-32 rounded border border-blue-500 bg-gray-800 px-2 py-0.5 text-right font-mono text-sm text-white focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="rounded px-2 py-0.5 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40"
-          >
-            {saving ? '…' : '✓'}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setValor(String(r.valor)); setEditing(false) }}
-            className="rounded px-2 py-0.5 text-xs text-gray-400 hover:text-white"
-          >
-            ✕
-          </button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-1 shrink-0">
-          <span className="font-mono text-sm text-white">{fmt(r.valor, r.tipo)}</span>
-          <button
-            type="button"
-            onClick={() => { setValor(String(r.valor)); setEditing(true) }}
-            className="rounded p-1 text-gray-500 hover:text-blue-400 hover:bg-blue-900/20 transition-colors"
-            title="Editar valor"
-          >
-            ✎
-          </button>
-        </div>
-      )}
+
 
       <button
         type="button"
