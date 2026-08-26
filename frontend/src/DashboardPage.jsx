@@ -1,6 +1,7 @@
 import DashboardSummary from './DashboardSummary'
 import VariationTable from './VariationTable'
 import PortfolioDistributionPie from './PortfolioDistributionPie'
+import TopPerformers from './TopPerformers'
 
 export default function DashboardPage({ refreshKey = 0 }) {
   return (
@@ -11,6 +12,10 @@ export default function DashboardPage({ refreshKey = 0 }) {
 
       <div className="lg:row-span-2 h-full">
         <PortfolioDistributionPie refreshKey={refreshKey} />
+      </div>
+
+      <div className="lg:col-span-2">
+        <TopPerformers refreshKey={refreshKey} />
       </div>
 
       <div className="lg:col-span-2">
