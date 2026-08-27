@@ -44,26 +44,26 @@ echo.
 
 REM Ir para frontend
 echo [3/5] Configurando Frontend...
-cd /d "%~dp0..\frontend"
+cd /d "%~dp0frontend"
 call npm install --legacy-peer-deps --silent 2>nul
 echo [OK] Frontend pronto
 echo.
 
 REM Voltar para raiz
-cd /d "%~dp0.."
+cd /d "%~dp0"
 echo [4/5] Preparando para iniciar servidores...
 echo.
 
 REM Iniciar Django
 echo [5/5] Iniciando servidores...
 echo.
-start "Backend - Django (8000)" cmd /k "cd /d ""%~dp0invesmenttracker"" && ""%PYTHON_EXE%"" manage.py runserver"
+start "Backend - Django (8000)" /d "%~dp0invesmenttracker" cmd /k ""%PYTHON_EXE%" manage.py runserver"
 
 REM Esperar Django iniciar
 timeout /t 3 /nobreak >nul
 
 REM Iniciar React
-start "Frontend - React (5173)" cmd /k "cd %~dp0frontend && npm run dev"
+start "Frontend - React (5173)" /d "%~dp0frontend" cmd /k "npm run dev"
 
 echo.
 echo =====================================================
