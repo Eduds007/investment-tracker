@@ -1,64 +1,19 @@
 from rest_framework import viewsets
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
-import re
-import unicodedata
+import os
+import tempfile
 from .models import Ativo, Indice, Posicao, Dividendo, MetaPortfolio
 from .serializers import AtivoSerializer, IndiceSerializer, PosicaoSerializer, DividendoSerializer
 from .recomendador import sugerir_alocacao
-
-
-CANONICAL_LABELS = {
-    'RESERVA': 'Reserva de Emergência',
-    'CRIPTO': 'Criptos',
-    'ETF': "ETF's",
-    'ACAO': 'Ações',
-    'FII': 'FII',
-}
-
-
-def _normalize_key(value):
-    text = (str(value or '')).strip().upper()
-    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
-    return re.sub(r'[^A-Z0-9]+', '', text)
-
-
-def _canonical_classe(value):
-    key = _normalize_key(value)
-
-    aliases = {
-        'RESERVA': 'RESERVA',
-        'RESERVADEEMERGENCIA': 'RESERVA',
-        'EMERGENCIA': 'RESERVA',
-        'SALDO': 'RESERVA',
-        'CRIPTO': 'CRIPTO',
-        'CRIPTOS': 'CRIPTO',
-        'CRYPTO': 'CRIPTO',
-        'CRYPTOS': 'CRIPTO',
-        'ETF': 'ETF',
-        'ETFS': 'ETF',
-        'ACAO': 'ACAO',
-        'ACOES': 'ACAO',
-        'AES': 'ACAO',
-        'FII': 'FII',
-        'FIIS': 'FII',
-    }
-
-    if key in aliases:
-        return aliases[key]
-
-    if key.startswith('ACO'):
-        return 'ACAO'
-    if key.startswith('CRIP'):
-        return 'CRIPTO'
-    if key.startswith('RESERV'):
-        return 'RESERVA'
-    if key.startswith('ETF'):
-        return 'ETF'
-    if key.startswith('FII'):
-        return 'FII'
-
-    return key
+from .importador import (
+    CANONICAL_LABELS,
+    _canonical_classe,
+    _aplicar_posicao,
+    _executar_extracao_claude,
+    aplicar_extrato,
+)
 
 class AtivoViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ativo.objects.all().order_by('classe_ativo', 'nome')
@@ -91,13 +46,10 @@ def registrar_posicao(request):
     """
     Registra uma Compra, Venda ou Atualização de posição.
     Payload: { data, ativo_nome, ativo_classe, tipo, valor, quantidade }
-    - ATUALIZACAO: salva o valor e a quantidade absolutos informados
-    - COMPRA:      soma valor/quantidade aos últimos conhecidos; recalcula preço médio
-    - VENDA:       subtrai valor/quantidade dos últimos conhecidos; preço médio não muda
     """
     data         = request.data.get('data')
     ativo_nome   = (request.data.get('ativo_nome') or '').strip().upper()
-    ativo_classe = _canonical_classe(request.data.get('ativo_classe', 'ACAO'))
+    ativo_classe = request.data.get('ativo_classe', 'ACAO')
     tipo         = request.data.get('tipo', 'ATUALIZACAO')
     valor        = float(request.data.get('valor', 0))
     quantidade   = float(request.data.get('quantidade', 0))
@@ -105,38 +57,7 @@ def registrar_posicao(request):
     if not data or not ativo_nome or valor <= 0 or quantidade <= 0:
         return Response({'success': False, 'error': 'Campos obrigatórios: data, ativo_nome, valor > 0, quantidade > 0'}, status=400)
 
-    ativo, _ = Ativo.objects.get_or_create(
-        nome=ativo_nome,
-        defaults={'classe_ativo': ativo_classe}
-    )
-
-    ultima = Posicao.objects.filter(ativo=ativo).order_by('-data').first()
-    base_valor = float(ultima.valor_atual) if ultima else 0.0
-    base_qtd = float(ultima.quantidade) if ultima else 0.0
-    base_preco_medio = float(ultima.preco_medio_compra) if ultima else 0.0
-
-    if tipo == 'COMPRA':
-        novo_valor = base_valor + valor
-        nova_qtd = base_qtd + quantidade
-        novo_preco_medio = (base_qtd * base_preco_medio + valor) / nova_qtd
-    elif tipo == 'VENDA':
-        novo_valor = max(base_valor - valor, 0)
-        nova_qtd = max(base_qtd - quantidade, 0)
-        novo_preco_medio = base_preco_medio if nova_qtd > 0 else 0.0
-    else:
-        novo_valor = valor
-        nova_qtd = quantidade
-        novo_preco_medio = base_preco_medio if ultima else valor / quantidade
-
-    posicao, criado = Posicao.objects.update_or_create(
-        data=data, ativo=ativo,
-        defaults={
-            'tipo_movimento': tipo,
-            'valor_atual': round(novo_valor, 2),
-            'quantidade': round(nova_qtd, 4),
-            'preco_medio_compra': round(novo_preco_medio, 4),
-        }
-    )
+    posicao, criado = _aplicar_posicao(ativo_nome, ativo_classe, tipo, valor, quantidade, data)
 
     return Response({
         'success': True,
@@ -308,3 +229,46 @@ def sugestao_aporte(request):
         return Response({'success': True, **resultado})
     except Exception as e:
         return Response({'success': False, 'error': str(e)}, status=500)
+
+
+@api_view(['POST'])
+@parser_classes([MultiPartParser])
+def importar_extrato(request):
+    """
+    Recebe o PDF do relatório mensal consolidado da B3, usa o Claude Code (CLI já
+    autenticado no terminal desta máquina, sem precisar de ANTHROPIC_API_KEY) para
+    extrair posições, negociações e dividendos, e grava tudo direto no banco.
+    """
+    arquivo = request.FILES.get('arquivo')
+    if not arquivo:
+        return Response({'success': False, 'error': 'Nenhum arquivo enviado (campo "arquivo").'}, status=400)
+    if not arquivo.name.lower().endswith('.pdf'):
+        return Response({'success': False, 'error': 'Envie um arquivo PDF.'}, status=400)
+
+    tmp_dir = tempfile.mkdtemp(prefix='extrato_')
+    tmp_path = os.path.join(tmp_dir, 'extrato.pdf')
+    try:
+        with open(tmp_path, 'wb') as f:
+            for chunk in arquivo.chunks():
+                f.write(chunk)
+
+        try:
+            dados = _executar_extracao_claude(tmp_path, tmp_dir)
+        except RuntimeError as e:
+            return Response({'success': False, 'error': str(e)}, status=502)
+
+        try:
+            resumo = aplicar_extrato(dados)
+        except ValueError as e:
+            return Response({'success': False, 'error': str(e)}, status=502)
+
+        return Response({'success': True, **resumo})
+    finally:
+        try:
+            os.remove(tmp_path)
+        except OSError:
+            pass
+        try:
+            os.rmdir(tmp_dir)
+        except OSError:
+            pass

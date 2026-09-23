@@ -9,6 +9,7 @@ import RecomendadoresPage from './RecomendadoresPage'
 import UltimosRegistrosPage from './UltimosRegistrosPage'
 import SettingsModal from './SettingsModal'
 import RegistrarPosicaoModal from './RegistrarPosicaoModal'
+import ImportarExtratoModal from './ImportarExtratoModal'
 
 Chart.register(...registerables)
 
@@ -16,6 +17,7 @@ export default function App() {
   const location = useLocation()
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isImportarExtratoOpen, setIsImportarExtratoOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const is = (path) => location.pathname === path
@@ -48,6 +50,13 @@ export default function App() {
           </button>
           <button
             type="button"
+            onClick={() => setIsImportarExtratoOpen(true)}
+            className="rounded-lg border border-gray-600 px-4 py-2 text-sm font-semibold text-gray-300 hover:bg-gray-800 transition-colors"
+          >
+            📄 Importar Extrato
+          </button>
+          <button
+            type="button"
             onClick={() => setIsSettingsOpen(true)}
             className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-600 text-xl text-gray-300 hover:bg-gray-800 hover:text-white"
             title="Configurações"
@@ -60,6 +69,12 @@ export default function App() {
       <RegistrarPosicaoModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        onSuccess={() => setRefreshKey(k => k + 1)}
+      />
+
+      <ImportarExtratoModal
+        isOpen={isImportarExtratoOpen}
+        onClose={() => setIsImportarExtratoOpen(false)}
         onSuccess={() => setRefreshKey(k => k + 1)}
       />
 

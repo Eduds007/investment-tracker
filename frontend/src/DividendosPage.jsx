@@ -6,7 +6,8 @@ import DividendoModal from './DividendoModal'
 export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
   const [chartData, setChartData] = useState(null)
   const [yieldChartData, setYieldChartData] = useState(null)
-  const [ranking, setRanking] = useState([])
+  const [recomendacoesCompra, setRecomendacoesCompra] = useState([])
+  const [menorYield12m, setMenorYield12m] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -16,6 +17,8 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
     style: 'currency',
     currency: 'BRL',
   })
+
+  const percentFormatter = (value) => (value === null || value === undefined ? '—' : `${value.toFixed(2)}%`)
 
   const handleDividendoCreated = () => {
     setRefreshKey((prev) => prev + 1)
@@ -70,6 +73,9 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
           posicoesPorAtivo.get(ativoNome).push({
             data: new Date(`${pos.data}T00:00:00`),
             valor: toNumber(pos.valor),
+            precoMedio: toNumber(pos.preco_medio_compra),
+            quantidade: toNumber(pos.quantidade),
+            classe: pos.classe_ativo,
           })
         })
 
@@ -101,12 +107,87 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
           }
         })
 
-        const rankingData = Array.from(totalsByAtivo.values())
-          .map((item) => ({
-            ...item,
-            media: item.quantidade > 0 ? item.total / item.quantidade : 0,
-          }))
-          .sort((a, b) => b.total - a.total)
+        // Posição mais recente de cada ativo, usada para o preço médio de compra atual
+        const posicaoAtualPorAtivo = new Map()
+        posicoesPorAtivo.forEach((historico, ativoNome) => {
+          posicaoAtualPorAtivo.set(ativoNome, historico[historico.length - 1])
+        })
+
+        // Último dividendo pago por ativo (data e valor daquele pagamento específico)
+        const ultimoDividendoPorAtivo = new Map()
+        // Valor por cota distribuído nos últimos 12 meses (mesma janela do gráfico) por ativo.
+        // Usa a quantidade de cotas NA ÉPOCA de cada pagamento (salva no próprio dividendo)
+        // sempre que disponível -- importante quando a posição mudou de tamanho no meio da
+        // janela. Cai para a quantidade atual como aproximação em registros antigos sem esse dado.
+        const mesesValidos = new Set(months.map((m) => `${m.year}-${m.month}`))
+        const valorPorCotaUltimos12mPorAtivo = new Map()
+        dividendos.forEach((div) => {
+          const ativoNome = div.ativo || 'Sem ativo'
+          const divDate = new Date(`${div.data}T00:00:00`)
+          const valor = toNumber(div.valor)
+          const atual = ultimoDividendoPorAtivo.get(ativoNome)
+          if (!atual || divDate > atual.data) {
+            ultimoDividendoPorAtivo.set(ativoNome, { data: divDate, valor })
+          }
+          if (mesesValidos.has(`${divDate.getFullYear()}-${divDate.getMonth()}`)) {
+            const quantidadeEpoca = toNumber(div.quantidade) || posicaoAtualPorAtivo.get(ativoNome)?.quantidade || 0
+            if (quantidadeEpoca > 0) {
+              const porCota = valor / quantidadeEpoca
+              valorPorCotaUltimos12mPorAtivo.set(ativoNome, (valorPorCotaUltimos12mPorAtivo.get(ativoNome) || 0) + porCota)
+            }
+          }
+        })
+
+        const percentualUltimos12m = (ativoNome, posicaoAtual) => {
+          const valorPorCota12m = valorPorCotaUltimos12mPorAtivo.get(ativoNome) || 0
+          const precoMedio = posicaoAtual?.precoMedio || 0
+          return precoMedio > 0 && valorPorCota12m > 0 ? (valorPorCota12m / precoMedio) * 100 : null
+        }
+
+        // Top 5 ações (em carteira) com maior Div. 12m / Preço Médio, entre as que estão
+        // sendo negociadas abaixo do preço médio de compra (preço atual < preço médio)
+        const acoesRecomendadas = []
+        posicaoAtualPorAtivo.forEach((posicaoAtual, ativoNome) => {
+          if (posicaoAtual.classe !== 'ACAO' || !(posicaoAtual.quantidade > 0)) return
+
+          const precoAtual = posicaoAtual.valor / posicaoAtual.quantidade
+          if (!(precoAtual < posicaoAtual.precoMedio)) return
+
+          acoesRecomendadas.push({
+            ativo: ativoNome,
+            precoMedio: posicaoAtual.precoMedio,
+            precoAtual,
+            recebidoPorCota12m: valorPorCotaUltimos12mPorAtivo.get(ativoNome) || 0,
+            percentualSobrePreco: percentualUltimos12m(ativoNome, posicaoAtual),
+          })
+        })
+
+        acoesRecomendadas.sort((a, b) => (b.percentualSobrePreco ?? -1) - (a.percentualSobrePreco ?? -1))
+
+        // Top 5 ações (em carteira) com menor Div. 12m / Preço Médio
+        const acoesMenorYield = []
+        posicaoAtualPorAtivo.forEach((posicaoAtual, ativoNome) => {
+          if (posicaoAtual.classe !== 'ACAO' || !(posicaoAtual.quantidade > 0)) return
+
+          const ultimoDividendo = ultimoDividendoPorAtivo.get(ativoNome)
+          const percentualSobrePreco = percentualUltimos12m(ativoNome, posicaoAtual)
+
+          acoesMenorYield.push({
+            ativo: ativoNome,
+            ultimoPagamentoData: ultimoDividendo ? ultimoDividendo.data : null,
+            precoMedio: posicaoAtual.precoMedio,
+            recebidoPorCota12m: valorPorCotaUltimos12mPorAtivo.get(ativoNome) || 0,
+            percentualSobrePreco,
+          })
+        })
+
+        // Quem nunca pagou nos últimos 12 meses (percentual null) entra como 0%, no fim da lista
+        acoesMenorYield.sort((a, b) => {
+          const pa = a.percentualSobrePreco ?? 0
+          const pb = b.percentualSobrePreco ?? 0
+          if (pa !== pb) return pa - pb
+          return a.ativo.localeCompare(b.ativo)
+        })
 
         const yieldData = months.map((month) => {
           const monthEnd = new Date(month.year, month.month + 1, 1)
@@ -210,7 +291,8 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
             },
           ],
         })
-        setRanking(rankingData)
+        setRecomendacoesCompra(acoesRecomendadas.slice(0, 5))
+        setMenorYield12m(acoesMenorYield.filter((item) => (item.percentualSobrePreco ?? 0) < 6).slice(0, 5))
       })
       .catch(() => {
         setError('Erro ao carregar dividendos.')
@@ -286,8 +368,6 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
     },
   }
 
-  const topRanking = ranking.slice(0, 10)
-
   if (loading) return <div className="p-4 text-white">Carregando dividendos...</div>
   if (error) return <div className="p-4 text-red-400">{error}</div>
 
@@ -332,17 +412,18 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
       <div className="mt-8 rounded-lg border border-gray-800 bg-black p-6">
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-white">Ranking de dividendos por ação</h2>
+            <h2 className="text-xl font-semibold text-white">Recomendação de compra</h2>
             <p className="mt-1 text-sm text-gray-400">
-              Ações que mais distribuíram dividendos no histórico disponível.
+              Top 5 ações em carteira com maior Div. 12m / Preço Médio, entre as que estão sendo
+              negociadas abaixo do seu preço médio de compra.
             </p>
           </div>
           <div className="text-sm text-gray-400">
-            {ranking.length} ativo{ranking.length === 1 ? '' : 's'} com pagamentos registrados
+            {recomendacoesCompra.length} {recomendacoesCompra.length === 1 ? 'ação' : 'ações'} abaixo do preço médio
           </div>
         </div>
 
-        {topRanking.length > 0 ? (
+        {recomendacoesCompra.length > 0 ? (
           <div className="overflow-hidden rounded-lg border border-gray-800">
             <table className="min-w-full divide-y divide-gray-800">
               <thead className="bg-gray-950">
@@ -354,27 +435,35 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
                     Ação
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Total recebido
+                    Preço Médio
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Pagamentos
+                    Preço Atual
                   </th>
                   <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
-                    Média por pagamento
+                    Recebido por Ação (12m)
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Div. 12m / Preço Médio
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800 bg-black">
-                {topRanking.map((item, index) => (
+                {recomendacoesCompra.map((item, index) => (
                   <tr key={item.ativo} className="hover:bg-gray-950/60">
                     <td className="px-4 py-3 text-sm font-semibold text-gray-200">#{index + 1}</td>
                     <td className="px-4 py-3 text-sm font-medium text-white">{item.ativo}</td>
-                    <td className="px-4 py-3 text-right text-sm text-emerald-400">
-                      {currencyFormatter.format(item.total)}
+                    <td className="px-4 py-3 text-right text-sm text-gray-200">
+                      {currencyFormatter.format(item.precoMedio)}
                     </td>
-                    <td className="px-4 py-3 text-right text-sm text-gray-200">{item.quantidade}</td>
+                    <td className="px-4 py-3 text-right text-sm text-emerald-400">
+                      {currencyFormatter.format(item.precoAtual)}
+                    </td>
                     <td className="px-4 py-3 text-right text-sm text-gray-400">
-                      {currencyFormatter.format(item.media)}
+                      {currencyFormatter.format(item.recebidoPorCota12m)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-400">
+                      {percentFormatter(item.percentualSobrePreco)}
                     </td>
                   </tr>
                 ))}
@@ -383,7 +472,74 @@ export default function DividendosPage({ refreshKey: externalRefreshKey = 0 }) {
           </div>
         ) : (
           <div className="rounded-lg border border-dashed border-gray-700 px-4 py-8 text-center text-sm text-gray-400">
-            Nenhum dividendo registrado ainda para montar o ranking.
+            Nenhuma ação em carteira está abaixo do preço médio no momento.
+          </div>
+        )}
+      </div>
+
+      <div className="mt-8 rounded-lg border border-gray-800 bg-black p-6">
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Top 5 ações com Div. 12m / Preço Médio abaixo de 6%</h2>
+            <p className="mt-1 text-sm text-gray-400">
+              Entre as ações em carteira, até 5 com menor yield sobre o preço médio abaixo de 6% nos últimos 12 meses.
+            </p>
+          </div>
+          <div className="text-sm text-gray-400">
+            {menorYield12m.length} {menorYield12m.length === 1 ? 'ação' : 'ações'} abaixo de 6%
+          </div>
+        </div>
+
+        {menorYield12m.length > 0 ? (
+          <div className="overflow-hidden rounded-lg border border-gray-800">
+            <table className="min-w-full divide-y divide-gray-800">
+              <thead className="bg-gray-950">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Posição
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Ação
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Última vez que pagou
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Preço Médio
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Recebido por Ação (12m)
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-400">
+                    Div. 12m / Preço Médio
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800 bg-black">
+                {menorYield12m.map((item, index) => (
+                  <tr key={item.ativo} className="hover:bg-gray-950/60">
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-200">#{index + 1}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-white">{item.ativo}</td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-200">
+                      {item.ultimoPagamentoData ? item.ultimoPagamentoData.toLocaleDateString('pt-BR') : 'Nunca'}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-200">
+                      {currencyFormatter.format(item.precoMedio)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-400">
+                      {currencyFormatter.format(item.recebidoPorCota12m)}
+                    </td>
+                    <td className="px-4 py-3 text-right text-sm text-gray-400">
+                      {percentFormatter(item.percentualSobrePreco)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-gray-700 px-4 py-8 text-center text-sm text-gray-400">
+            Nenhuma ação em carteira com yield abaixo de 6%.
           </div>
         )}
       </div>

@@ -54,8 +54,8 @@ class Posicao(models.Model):
     preco_medio_compra = models.DecimalField("Preço Médio (R$)", max_digits=15, decimal_places=4, help_text="Preço médio de aquisição do ativo")
     resultado_total = models.GeneratedField(
         verbose_name="Resultado (R$)",
-        help_text="Ganho/perda de capital: quantidade × (valor atual - preço médio de compra)",
-        expression=models.F('quantidade') * (models.F('valor_atual') - models.F('preco_medio_compra')),
+        help_text="Ganho/perda de capital: valor atual - (quantidade × preço médio de compra)",
+        expression=models.F('valor_atual') - (models.F('quantidade') * models.F('preco_medio_compra')),
         output_field=models.DecimalField(max_digits=18, decimal_places=2),
         db_persist=True,
     )
@@ -89,6 +89,10 @@ class Dividendo(models.Model):
     ativo = models.ForeignKey(Ativo, on_delete=models.PROTECT, help_text="Ativo que gerou o dividendo")
     valor = models.DecimalField("Valor (R$)", max_digits=12, decimal_places=2, help_text="Valor do dividendo")
     tipo = models.CharField("Tipo", max_length=50, help_text="Ex: Dividendo, JCP, Aluguel", blank=True, null=True)
+    quantidade = models.DecimalField(
+        "Quantidade", max_digits=15, decimal_places=4, null=True, blank=True,
+        help_text="Quantidade de cotas/ações na época do pagamento (usada para calcular o valor por cota)",
+    )
     
     class Meta:
         verbose_name = "Dividendo"

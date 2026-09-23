@@ -26,5 +26,5 @@ class DividendoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dividendo
-        fields = ['id', 'data', 'ativo', 'valor', 'tipo']
+        fields = ['id', 'data', 'ativo', 'valor', 'tipo', 'quantidade']
 

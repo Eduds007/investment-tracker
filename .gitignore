@@ -52,3 +52,6 @@ historico/
 
 # Local import scripts
 invesmenttracker/load_*.py
+
+
+reports/
