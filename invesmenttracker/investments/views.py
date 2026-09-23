@@ -222,7 +222,7 @@ def ultimos_registros(request):
 
 
 @api_view(['GET'])
-def sugestao_aporte(request):
+def sugestao_investimento(request):
     try:
         valor = float(request.query_params.get('valor', 100))
         resultado = sugerir_alocacao(valor)

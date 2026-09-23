@@ -8,7 +8,7 @@ import random
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'invesmenttracker.settings')
 django.setup()
 
-from investments.models import Aporte, Ativo, Indice, Posicao, Dividendo, MetaPortfolio
+from investments.models import Ativo, Indice, Posicao, Dividendo, MetaPortfolio
 
 def limpar_banco():
     """Limpa dados anteriores"""
@@ -16,7 +16,6 @@ def limpar_banco():
     Dividendo.objects.all().delete()
     Posicao.objects.all().delete()
     Indice.objects.all().delete()
-    Aporte.objects.all().delete()
     Ativo.objects.all().delete()
     MetaPortfolio.objects.all().delete()
     print("✓ Banco de dados limpo")
@@ -76,35 +75,6 @@ def criar_ativos():
         print(f"  {status}: {nome} ({classe})")
     
     return ativos
-
-def criar_aportes():
-    """Cria aportes dummy"""
-    print("\nCriando aportes...")
-    hoje = datetime.now().date()
-    
-    aportes_data = [
-        {'data': hoje - timedelta(days=90), 'tipo': 'COMPRA', 'valor': 1000, 'lugar': 'CLEAR', 'descricao': 'Aporte inicial'},
-        {'data': hoje - timedelta(days=60), 'tipo': 'COMPRA', 'valor': 500, 'lugar': 'INTER', 'descricao': 'Aporte mensal'},
-        {'data': hoje - timedelta(days=30), 'tipo': 'COMPRA', 'valor': 750, 'lugar': 'CLEAR', 'descricao': 'Bônus recebido'},
-        {'data': hoje - timedelta(days=15), 'tipo': 'COMPRA', 'valor': 200, 'lugar': 'INTER', 'descricao': 'Aporte extra'},
-        {'data': hoje - timedelta(days=7), 'tipo': 'SAQUE', 'valor': 100, 'lugar': 'CLEAR', 'descricao': 'Saque para emergência'},
-        {'data': hoje - timedelta(days=1), 'tipo': 'COMPRA', 'valor': 300, 'lugar': 'INTER', 'descricao': 'Aporte mensal'},
-    ]
-    
-    for data_aporte in aportes_data:
-        aporte, created = Aporte.objects.get_or_create(
-            data=data_aporte['data'],
-            tipo=data_aporte['tipo'],
-            valor=Decimal(str(data_aporte['valor'])),
-            defaults={
-                'lugar': data_aporte['lugar'],
-                'descricao': data_aporte['descricao']
-            }
-        )
-        if created:
-            print(f"  ✓ {aporte}")
-    
-    print(f"  Total de aportes: {Aporte.objects.count()}")
 
 def criar_indices():
     """Cria índices dummy"""
@@ -227,7 +197,6 @@ def main():
     try:
         limpar_banco()
         ativos = criar_ativos()
-        criar_aportes()
         criar_indices()
         criar_posicoes(ativos)
         criar_dividendos(ativos)
@@ -238,7 +207,6 @@ def main():
         print("=" * 50)
         print(f"\nResumo:")
         print(f"  - Ativos: {Ativo.objects.count()}")
-        print(f"  - Aportes: {Aporte.objects.count()}")
         print(f"  - Índices: {Indice.objects.count()}")
         print(f"  - Posições: {Posicao.objects.count()}")
         print(f"  - Dividendos: {Dividendo.objects.count()}")

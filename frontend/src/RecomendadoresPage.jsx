@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 
 export default function RecomendadoresPage({ refreshKey = 0 }) {
-  const [valorAporte, setValorAporte] = useState('100')
+  const [valorInvestimento, setValorInvestimento] = useState('100')
   const [sugestao, setSugestao] = useState(null)
   const [carregando, setCarregando] = useState(false)
   const [erro, setErro] = useState(null)
@@ -18,13 +18,13 @@ export default function RecomendadoresPage({ refreshKey = 0 }) {
   }, [refreshKey])
 
   const calcularSugestao = async () => {
-    const valor = parseFloat(valorAporte)
+    const valor = parseFloat(valorInvestimento)
     if (!valor || valor <= 0) return
     setCarregando(true)
     setErro(null)
     setSugestao(null)
     try {
-      const response = await axios.get(`http://localhost:8000/api/sugestao-aporte/?valor=${valor}`)
+      const response = await axios.get(`http://localhost:8000/api/sugestao-investimento/?valor=${valor}`)
       if (response.data.success) {
         setSugestao(response.data)
       } else {
@@ -39,23 +39,23 @@ export default function RecomendadoresPage({ refreshKey = 0 }) {
 
   return (
     <div className="rounded-lg border border-gray-700 bg-gray-900 p-6 space-y-5">
-      <h2 className="text-xl font-bold text-white">Sugestão de Aporte</h2>
+      <h2 className="text-xl font-bold text-white">Sugestão de Investimento</h2>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1">
-          <label className="mb-1 block text-sm font-medium text-gray-400">Valor do Aporte (R$)</label>
+          <label className="mb-1 block text-sm font-medium text-gray-400">Valor a Investir (R$)</label>
           <input
             type="number"
             min="1"
-            value={valorAporte}
-            onChange={e => setValorAporte(e.target.value)}
+            value={valorInvestimento}
+            onChange={e => setValorInvestimento(e.target.value)}
             className="w-full rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 text-white placeholder-gray-500 focus:border-blue-500 focus:outline-none"
             placeholder="Ex: 500"
           />
         </div>
         <button
           onClick={calcularSugestao}
-          disabled={carregando || !valorAporte || parseFloat(valorAporte) <= 0}
+          disabled={carregando || !valorInvestimento || parseFloat(valorInvestimento) <= 0}
           className="rounded-lg bg-blue-600 px-6 py-2 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {carregando ? 'Calculando...' : 'Calcular'}
