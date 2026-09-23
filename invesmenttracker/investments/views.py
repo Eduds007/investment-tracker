@@ -80,20 +80,38 @@ def atualizar_indices(request):
     hoje = date.today()
     resultados = []
 
+    def ultimo_fechamento(ticker):
+        """Último fechamento válido (ignora o pregão do dia atual quando ainda não fechou, que vem como NaN)."""
+        dados = yf.Ticker(ticker).history(period='5d')
+        fechamentos = dados['Close'].dropna()
+        return float(fechamentos.iloc[-1]) if not fechamentos.empty else None
+
+    # BTC-BRL não existe no yfinance -- converte BTC-USD pela cotação USD/BRL do dia
+    usd_brl = None
+
     yf_map = {
-        'BTC':     'BTC-BRL',
+        'BTC':     'BTC-USD',
         'SP500':   '^GSPC',
         'BOVESPA': '^BVSP',
-        'IFIX':    '^IFIX',
+        'IFIX':    'IFIX.SA',
     }
 
     for nome, ticker in yf_map.items():
         try:
-            dados = yf.Ticker(ticker).history(period='5d')
-            if dados.empty:
+            fechamento = ultimo_fechamento(ticker)
+            if fechamento is None:
                 resultados.append({'nome': nome, 'status': 'erro', 'msg': 'Sem dados no yfinance'})
                 continue
-            valor = round(float(dados.iloc[-1]['Close']), 4)
+
+            if nome == 'BTC':
+                if usd_brl is None:
+                    usd_brl = ultimo_fechamento('USDBRL=X')
+                if not usd_brl:
+                    resultados.append({'nome': nome, 'status': 'erro', 'msg': 'Sem cotação USD/BRL para converter'})
+                    continue
+                fechamento *= usd_brl
+
+            valor = round(fechamento, 4)
             obj, criado = Indice.objects.update_or_create(
                 data=hoje, nome=nome,
                 defaults={'valor': valor}
